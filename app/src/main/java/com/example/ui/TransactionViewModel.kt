@@ -1,0 +1,297 @@
+package com.example.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.data.Account
+import com.example.data.Transaction
+import com.example.data.IncomeType
+import com.example.data.ExpenseType
+import com.example.data.TransactionRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class TransactionViewModel(private val repository: TransactionRepository) : ViewModel() {
+
+    val allAccounts: StateFlow<List<Account>> = repository.allAccounts
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _selectedAccountId = MutableStateFlow<Long?>(null)
+    val selectedAccountId: StateFlow<Long?> = _selectedAccountId.asStateFlow()
+
+    // Dynamic ID of the active account (user selected OR first in list)
+    val activeAccountId: StateFlow<Long?> = combine(allAccounts, _selectedAccountId) { accounts, selectedId ->
+        selectedId ?: accounts.firstOrNull()?.id
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    val currentAccount: StateFlow<Account?> = combine(allAccounts, activeAccountId) { accounts, activeId ->
+        accounts.find { it.id == activeId }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    // Load transactions for the currently active account
+    val allTransactions: StateFlow<List<Transaction>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getTransactionsForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Load income types for the currently active account
+    val incomeTypes: StateFlow<List<IncomeType>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getIncomeTypesForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Load expense types for the currently active account
+    val expenseTypes: StateFlow<List<ExpenseType>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getExpenseTypesForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val totalIncome: StateFlow<Double> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getTotalIncomeForAccount(id) else flowOf(null)
+        }
+        .map { it ?: 0.0 }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0.0
+        )
+
+    val totalExpenses: StateFlow<Double> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getTotalExpensesForAccount(id) else flowOf(null)
+        }
+        .map { it ?: 0.0 }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0.0
+        )
+
+    val currentBalance: StateFlow<Double> = combine(totalIncome, totalExpenses) { income, expenses ->
+        income - expenses
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0.0
+    )
+
+    // Ensure we have at least one default account when DB is empty
+    init {
+        viewModelScope.launch {
+            repository.allAccounts.first { true }.let { accounts ->
+                if (accounts.isEmpty()) {
+                    addAccount("الحساب الرئيسي")
+                }
+            }
+        }
+    }
+
+    fun selectAccount(accountId: Long) {
+        _selectedAccountId.value = accountId
+    }
+
+    fun addAccount(name: String) {
+        viewModelScope.launch {
+            val newId = repository.insertAccount(Account(name = name))
+            _selectedAccountId.value = newId
+        }
+    }
+
+    fun updateAccountName(account: Account, newName: String) {
+        viewModelScope.launch {
+            repository.updateAccount(account.copy(name = newName))
+        }
+    }
+
+    fun deleteAccount(account: Account) {
+        viewModelScope.launch {
+            repository.deleteAccount(account)
+            if (_selectedAccountId.value == account.id) {
+                _selectedAccountId.value = null
+            }
+        }
+    }
+
+    fun addTransaction(title: String, amount: Double, type: String, category: String, notes: String = "") {
+        val accountId = activeAccountId.value ?: return
+        viewModelScope.launch {
+            val transaction = Transaction(
+                accountId = accountId,
+                title = title,
+                amount = amount,
+                type = type,
+                category = category,
+                notes = notes,
+                timestamp = System.currentTimeMillis()
+            )
+            repository.insert(transaction)
+        }
+    }
+
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            repository.deleteIncomeTypeByTransactionId(transaction.id)
+            repository.delete(transaction)
+        }
+    }
+
+    fun deleteTransactionById(id: Long) {
+        viewModelScope.launch {
+            repository.deleteIncomeTypeByTransactionId(id)
+            repository.deleteById(id)
+        }
+    }
+
+    fun updateTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            repository.update(transaction)
+        }
+    }
+
+    // Income Type operations
+    fun addIncomeType(name: String, consumedBags: Int, amount: Double, notes: String) {
+        val accountId = activeAccountId.value ?: return
+        viewModelScope.launch {
+            val transactionId = repository.insert(
+                Transaction(
+                    accountId = accountId,
+                    title = "إيراد يوم $name",
+                    amount = amount,
+                    type = "INCOME",
+                    category = "شوالات: $consumedBags",
+                    notes = notes
+                )
+            )
+            repository.insertIncomeType(
+                IncomeType(
+                    accountId = accountId,
+                    name = name,
+                    consumedBags = consumedBags,
+                    amount = amount,
+                    notes = notes,
+                    transactionId = transactionId
+                )
+            )
+        }
+    }
+
+    fun updateIncomeType(incomeType: IncomeType, newName: String, newConsumedBags: Int, newAmount: Double, newNotes: String) {
+        val accountId = activeAccountId.value ?: return
+        viewModelScope.launch {
+            val tId = incomeType.transactionId
+            if (tId != null) {
+                repository.update(
+                    Transaction(
+                        id = tId,
+                        accountId = accountId,
+                        title = "إيراد يوم $newName",
+                        amount = newAmount,
+                        type = "INCOME",
+                        category = "شوالات: $newConsumedBags",
+                        notes = newNotes,
+                        timestamp = incomeType.timestamp
+                    )
+                )
+                repository.updateIncomeType(
+                    incomeType.copy(
+                        name = newName,
+                        consumedBags = newConsumedBags,
+                        amount = newAmount,
+                        notes = newNotes
+                    )
+                )
+            } else {
+                val newTId = repository.insert(
+                    Transaction(
+                        accountId = accountId,
+                        title = "إيراد يوم $newName",
+                        amount = newAmount,
+                        type = "INCOME",
+                        category = "شوالات: $newConsumedBags",
+                        notes = newNotes,
+                        timestamp = incomeType.timestamp
+                    )
+                )
+                repository.updateIncomeType(
+                    incomeType.copy(
+                        name = newName,
+                        consumedBags = newConsumedBags,
+                        amount = newAmount,
+                        notes = newNotes,
+                        transactionId = newTId
+                    )
+                )
+            }
+        }
+    }
+
+    fun deleteIncomeType(incomeType: IncomeType) {
+        viewModelScope.launch {
+            val tId = incomeType.transactionId
+            if (tId != null) {
+                repository.deleteById(tId)
+            }
+            repository.deleteIncomeType(incomeType)
+        }
+    }
+
+    // Expense Type operations
+    fun addExpenseType(name: String) {
+        val accountId = activeAccountId.value ?: return
+        viewModelScope.launch {
+            repository.insertExpenseType(ExpenseType(accountId = accountId, name = name))
+        }
+    }
+
+    fun updateExpenseType(expenseType: ExpenseType, newName: String) {
+        viewModelScope.launch {
+            repository.updateExpenseType(expenseType.copy(name = newName))
+        }
+    }
+
+    fun deleteExpenseType(expenseType: ExpenseType) {
+        viewModelScope.launch {
+            repository.deleteExpenseType(expenseType)
+        }
+    }
+}
+
+class TransactionViewModelFactory(private val repository: TransactionRepository) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return TransactionViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
