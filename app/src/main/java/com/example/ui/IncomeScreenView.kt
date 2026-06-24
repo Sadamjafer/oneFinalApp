@@ -348,7 +348,7 @@ fun IncomeScreenView(
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
                                         Text(
-                                            text = "${decimalFormat.format(incomeType.amount)} د.ع",
+                                            text = "${decimalFormat.format(incomeType.amount)} ج.س",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = Color(0xFF2E7D32) // Forest green for positive income
@@ -508,6 +508,7 @@ fun IncomeScreenView(
                             placeholder = { Text("أدخل الرقم (مثال: 5)") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             leadingIcon = { Text("🌾", modifier = Modifier.padding(start = 8.dp)) }
@@ -522,11 +523,12 @@ fun IncomeScreenView(
                                     showAmountError = false
                                 }
                             },
-                            label = { Text("مبلغ إيرادات اليوم (بالدينار)") },
+                            label = { Text("مبلغ إيرادات اليوم (بالجنيه السوداني)") },
                             placeholder = { Text("مثال: 150000") },
                             singleLine = true,
                             isError = showAmountError,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             leadingIcon = { Text("💰", modifier = Modifier.padding(start = 8.dp)) }
@@ -672,6 +674,7 @@ fun IncomeScreenView(
                             label = { Text("عدد الشوالات المستهلكة") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             leadingIcon = { Text("🌾", modifier = Modifier.padding(start = 8.dp)) }
@@ -686,10 +689,11 @@ fun IncomeScreenView(
                                     showAmountError = false
                                 }
                             },
-                            label = { Text("مبلغ إيرادات اليوم (بالدينار)") },
+                            label = { Text("مبلغ إيرادات اليوم (بالجنيه السوداني)") },
                             singleLine = true,
                             isError = showAmountError,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             leadingIcon = { Text("💰", modifier = Modifier.padding(start = 8.dp)) }

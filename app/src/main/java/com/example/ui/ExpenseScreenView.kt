@@ -338,7 +338,7 @@ fun ExpenseScreenView(
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            text = "${decimalFormat.format(totalAmount)} د.ع",
+                                            text = "${decimalFormat.format(totalAmount)} ج.س",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp,
                                             color = MaterialTheme.colorScheme.error
@@ -423,7 +423,7 @@ fun ExpenseScreenView(
                                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                 ) {
                                                     Text(
-                                                        text = "${decimalFormat.format(transaction.amount)} د.ع",
+                                                        text = "${decimalFormat.format(transaction.amount)} ج.س",
                                                         fontWeight = FontWeight.Bold,
                                                         fontSize = 12.sp,
                                                         color = MaterialTheme.colorScheme.error
@@ -871,11 +871,12 @@ fun ExpenseScreenView(
                                     showError = false
                                 }
                             },
-                            label = { Text("المبلغ (بالدينار العراقي)") },
+                            label = { Text("المبلغ (بالجنيه السوداني)") },
                             placeholder = { Text("أدخل قيمة المبلغ المدفوع") },
                             singleLine = true,
                             isError = showError,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -1034,11 +1035,12 @@ fun ExpenseScreenView(
                                     showError = false
                                 }
                             },
-                            label = { Text("المبلغ (بالدينار العراقي)") },
+                            label = { Text("المبلغ (بالجنيه السوداني)") },
                             placeholder = { Text("أدخل قيمة المبلغ المدفوع") },
                             singleLine = true,
                             isError = showError,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            visualTransformation = NumberCommaTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )

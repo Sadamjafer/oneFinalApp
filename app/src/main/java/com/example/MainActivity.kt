@@ -46,6 +46,7 @@ import com.example.ui.TransactionViewModel
 import com.example.ui.TransactionViewModelFactory
 import com.example.ui.IncomeScreenView
 import com.example.ui.ExpenseScreenView
+import com.example.ui.ReportsScreenView
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -225,6 +226,34 @@ fun LedgerDashboard(
                             text = "المصروفات",
                             fontSize = 10.sp,
                             fontWeight = if (selectedTab == "EXPENSE_SCREEN") FontWeight.Bold else FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    // Reports Tab
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clickable { selectedTab = "REPORTS_SCREEN" }
+                            .alpha(if (selectedTab == "REPORTS_SCREEN") 1.0f else 0.6f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(64.dp)
+                                .height(32.dp)
+                                .background(
+                                    if (selectedTab == "REPORTS_SCREEN") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("📊", fontSize = 18.sp)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "التقارير",
+                            fontSize = 10.sp,
+                            fontWeight = if (selectedTab == "REPORTS_SCREEN") FontWeight.Bold else FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -623,6 +652,11 @@ fun LedgerDashboard(
                     innerPadding = innerPadding,
                     onNavigateBack = { selectedTab = "HOME" }
                 )
+            }
+            "REPORTS_SCREEN" -> {
+                Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                    ReportsScreenView(viewModel = viewModel)
+                }
             }
             "SETTINGS" -> {
                 // Settings screen inside Scaffold
@@ -1227,7 +1261,7 @@ fun BalanceCard(
                     color = Color(0xFF21005D)
                 )
                 Text(
-                    text = "د.إ",
+                    text = "ج.س",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF21005D)
@@ -1424,7 +1458,7 @@ fun TransactionItem(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "${if (transaction.type == "INCOME") "+" else "-"}$formattedAmount د.إ",
+                    text = "${if (transaction.type == "INCOME") "+" else "-"}$formattedAmount ج.س",
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 15.sp,
                     color = typeColor
