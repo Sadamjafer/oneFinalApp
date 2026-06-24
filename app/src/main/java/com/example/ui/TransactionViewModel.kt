@@ -142,7 +142,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         }
     }
 
-    fun addTransaction(title: String, amount: Double, type: String, category: String, notes: String = "") {
+    fun addTransaction(title: String, amount: Double, type: String, category: String, notes: String = "", timestamp: Long = System.currentTimeMillis()) {
         val accountId = activeAccountId.value ?: return
         viewModelScope.launch {
             val transaction = Transaction(
@@ -152,7 +152,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                 type = type,
                 category = category,
                 notes = notes,
-                timestamp = System.currentTimeMillis()
+                timestamp = timestamp
             )
             repository.insert(transaction)
         }

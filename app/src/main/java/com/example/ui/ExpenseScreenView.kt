@@ -1,5 +1,7 @@
 package com.example.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +54,7 @@ fun ExpenseScreenView(
     var showEditTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var showDeleteTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var showRegisterAmountDialog by remember { mutableStateOf<ExpenseType?>(null) }
+    var showEditPaymentDialog by remember { mutableStateOf<Transaction?>(null) }
 
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
 
@@ -247,9 +250,13 @@ fun ExpenseScreenView(
                     }
                     val count = typeTransactions.size
 
+                    var isExpanded by remember { mutableStateOf(false) }
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { isExpanded = !isExpanded }
                             .border(
                                 1.dp,
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
@@ -295,122 +302,224 @@ fun ExpenseScreenView(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Icon(
+                                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                    contentDescription = if (isExpanded) "إغلاق التفاصيل" else "عرض التفاصيل",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(24.dp)
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            if (isExpanded) {
+                                Spacer(modifier = Modifier.height(14.dp))
 
-                            // Stats container inside the card
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(
-                                        MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "إجمالي المصروفات:",
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = "${decimalFormat.format(totalAmount)} د.ع",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+                                // Stats container inside the card
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .border(
+                                            width = 1.dp,
+                                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "إجمالي المصروفات:",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                        Text(
+                                            text = "${decimalFormat.format(totalAmount)} د.ع",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 18.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "$count دفعات",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
 
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
+                                if (typeTransactions.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = "$count دفعات",
+                                        text = "الدفعات الموثقة تحت هذا المصروف:",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .border(
+                                                width = 1.dp,
+                                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .padding(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        val sortedTypeTransactions = remember(typeTransactions) {
+                                            typeTransactions.sortedByDescending { it.timestamp }
+                                        }
+                                        sortedTypeTransactions.forEach { transaction ->
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(transaction.timestamp)),
+                                                            fontSize = 11.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        if (transaction.notes.isNotBlank()) {
+                                                            Text(
+                                                                text = "- ${transaction.notes}",
+                                                                fontSize = 11.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "${decimalFormat.format(transaction.amount)} د.ع",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 12.sp,
+                                                        color = MaterialTheme.colorScheme.error
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = "تعديل الدفعة",
+                                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .clickable {
+                                                                showEditPaymentDialog = transaction
+                                                            }
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "حذف الدفعة",
+                                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .clickable {
+                                                                viewModel.deleteTransaction(transaction)
+                                                            }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                            // Action buttons at bottom of card
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Add Amount / Register Payment Button
-                                Button(
-                                    onClick = { showRegisterAmountDialog = expenseType },
-                                    modifier = Modifier.weight(1.3f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    ),
-                                    contentPadding = PaddingValues(vertical = 4.dp),
-                                    shape = RoundedCornerShape(10.dp)
+                                // Action buttons at bottom of card
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AddCircle,
-                                        contentDescription = "تسجيل مبلغ",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("تسجيل مبلغ", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
+                                    // Add Amount / Register Payment Button
+                                    Button(
+                                        onClick = { showRegisterAmountDialog = expenseType },
+                                        modifier = Modifier.weight(1.3f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 4.dp),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AddCircle,
+                                            contentDescription = "تسجيل مبلغ",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("تسجيل مبلغ", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
 
-                                // Rename Button
-                                OutlinedButton(
-                                    onClick = { showEditTypeDialog = expenseType },
-                                    modifier = Modifier.weight(0.9f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(vertical = 4.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "تعديل الاسم",
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("تعديل", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
+                                    // Rename Button
+                                    OutlinedButton(
+                                        onClick = { showEditTypeDialog = expenseType },
+                                        modifier = Modifier.weight(0.9f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(vertical = 4.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "تعديل الاسم",
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("تعديل", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
 
-                                // Delete Button
-                                OutlinedButton(
-                                    onClick = { showDeleteTypeDialog = expenseType },
-                                    modifier = Modifier.weight(0.9f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(vertical = 4.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    ),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "حذف نوع المصروف",
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("حذف", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    // Delete Button
+                                    OutlinedButton(
+                                        onClick = { showDeleteTypeDialog = expenseType },
+                                        modifier = Modifier.weight(0.9f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(vertical = 4.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "حذف نوع المصروف",
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("حذف", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -700,9 +809,11 @@ fun ExpenseScreenView(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
+                val todayDate = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date()) }
+                var dateStr by remember { mutableStateOf(todayDate) }
                 var amountStr by remember { mutableStateOf("") }
                 var noteStr by remember { mutableStateOf("") }
-                var titleStr by remember { mutableStateOf("دفعة مصروف: ${expenseType.name}") }
+                var showDateError by remember { mutableStateOf(false) }
                 var showError by remember { mutableStateOf(false) }
 
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -726,6 +837,30 @@ fun ExpenseScreenView(
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
+
+                        // Date Field (Defaults to Today)
+                        OutlinedTextField(
+                            value = dateStr,
+                            onValueChange = {
+                                dateStr = it
+                                showDateError = false
+                            },
+                            label = { Text("تاريخ العملية") },
+                            placeholder = { Text("مثال: 2026/06/24") },
+                            singleLine = true,
+                            isError = showDateError,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                        )
+                        if (showDateError) {
+                            Text(
+                                text = "الرجاء إدخال تاريخ صحيح غير فارغ",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
 
                         // Amount Input (Mandatory)
                         OutlinedTextField(
@@ -758,16 +893,6 @@ fun ExpenseScreenView(
                             )
                         }
 
-                        // Title/Description (Optional, defaulted)
-                        OutlinedTextField(
-                            value = titleStr,
-                            onValueChange = { titleStr = it },
-                            label = { Text("عنوان المعاملة (البيان)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
                         // Notes (Optional)
                         OutlinedTextField(
                             value = noteStr,
@@ -795,17 +920,26 @@ fun ExpenseScreenView(
                             Button(
                                 onClick = {
                                     val amountValue = amountStr.toDoubleOrNull()
-                                    if (amountValue != null && amountValue > 0.0) {
+                                    val isDateValid = dateStr.isNotBlank()
+                                    val isAmountValid = amountValue != null && amountValue > 0.0
+
+                                    if (!isDateValid) showDateError = true
+                                    if (!isAmountValid) showError = true
+
+                                    if (isDateValid && isAmountValid) {
+                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+                                        val dateObj = try { sdf.parse(dateStr.trim()) } catch(e: Exception) { null }
+                                        val timestampValue = dateObj?.time ?: System.currentTimeMillis()
+
                                         viewModel.addTransaction(
-                                            title = if (titleStr.isNotBlank()) titleStr.trim() else "مصروف: ${expenseType.name}",
-                                            amount = amountValue,
+                                            title = "مصروف: ${expenseType.name}",
+                                            amount = amountValue!!,
                                             type = "EXPENSE",
                                             category = expenseType.name,
-                                            notes = noteStr.trim()
+                                            notes = noteStr.trim(),
+                                            timestamp = timestampValue
                                         )
                                         showRegisterAmountDialog = null
-                                    } else {
-                                        showError = true
                                     }
                                 },
                                 modifier = Modifier.weight(1.5f),
@@ -816,6 +950,164 @@ fun ExpenseScreenView(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text("حفظ المبلغ", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Popup Dialog to Edit Payment under Expense Type
+    if (showEditPaymentDialog != null) {
+        val transaction = showEditPaymentDialog!!
+        Dialog(onDismissRequest = { showEditPaymentDialog = null }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                val initialDate = remember(transaction) {
+                    SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(transaction.timestamp))
+                }
+                var dateStr by remember { mutableStateOf(initialDate) }
+                var amountStr by remember { mutableStateOf(transaction.amount.toString()) }
+                var noteStr by remember { mutableStateOf(transaction.notes) }
+                var showDateError by remember { mutableStateOf(false) }
+                var showError by remember { mutableStateOf(false) }
+
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "تعديل دفعة المصروف",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Text(
+                            text = "المصروف: ${transaction.category}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Date Field
+                        OutlinedTextField(
+                            value = dateStr,
+                            onValueChange = {
+                                dateStr = it
+                                showDateError = false
+                            },
+                            label = { Text("تاريخ العملية") },
+                            placeholder = { Text("مثال: 2026/06/24") },
+                            singleLine = true,
+                            isError = showDateError,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                        )
+                        if (showDateError) {
+                            Text(
+                                text = "الرجاء إدخال تاريخ صحيح غير فارغ",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        // Amount Input
+                        OutlinedTextField(
+                            value = amountStr,
+                            onValueChange = {
+                                if (it.all { char -> char.isDigit() || char == '.' }) {
+                                    amountStr = it
+                                    showError = false
+                                }
+                            },
+                            label = { Text("المبلغ (بالدينار العراقي)") },
+                            placeholder = { Text("أدخل قيمة المبلغ المدفوع") },
+                            singleLine = true,
+                            isError = showError,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        if (showError) {
+                            Text(
+                                text = "الرجاء إدخال مبلغ صحيح أكبر من الصفر",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 11.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        // Notes
+                        OutlinedTextField(
+                            value = noteStr,
+                            onValueChange = { noteStr = it },
+                            label = { Text("الملاحظات (اختياري)") },
+                            placeholder = { Text("تفاصيل إضافية عن الدفعة...") },
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TextButton(
+                                onClick = { showEditPaymentDialog = null },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("إلغاء", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+
+                            Button(
+                                onClick = {
+                                    val amountValue = amountStr.toDoubleOrNull()
+                                    val isDateValid = dateStr.isNotBlank()
+                                    val isAmountValid = amountValue != null && amountValue > 0.0
+
+                                    if (!isDateValid) showDateError = true
+                                    if (!isAmountValid) showError = true
+
+                                    if (isDateValid && isAmountValid) {
+                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+                                        val dateObj = try { sdf.parse(dateStr.trim()) } catch(e: Exception) { null }
+                                        val timestampValue = dateObj?.time ?: transaction.timestamp
+
+                                        viewModel.updateTransaction(
+                                            transaction.copy(
+                                                amount = amountValue!!,
+                                                notes = noteStr.trim(),
+                                                timestamp = timestampValue
+                                            )
+                                        )
+                                        showEditPaymentDialog = null
+                                    }
+                                },
+                                modifier = Modifier.weight(1.5f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("تعديل المبلغ", fontWeight = FontWeight.Bold)
                             }
                         }
                     }

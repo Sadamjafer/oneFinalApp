@@ -118,8 +118,6 @@ fun LedgerDashboard(
     val accounts by viewModel.allAccounts.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
 
-    var showAddDialog by remember { mutableStateOf(false) }
-    var transactionTypeToAdd by remember { mutableStateOf("EXPENSE") } // "INCOME" or "EXPENSE"
     var filterType by remember { mutableStateOf("ALL") } // "ALL", "INCOME", "EXPENSE"
     var selectedTab by remember { mutableStateOf("HOME") } // "HOME" or "SETTINGS"
 
@@ -132,30 +130,6 @@ fun LedgerDashboard(
     }
 
     Scaffold(
-        floatingActionButton = {
-            if (selectedTab == "HOME") {
-                FloatingActionButton(
-                    onClick = {
-                        transactionTypeToAdd = "EXPENSE"
-                        showAddDialog = true
-                    },
-                    containerColor = Color(0xFF6750A4),
-                    contentColor = Color.White,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .padding(bottom = 12.dp)
-                        .size(56.dp)
-                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
-                        .testTag("add_transaction_fab")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "إضافة معاملة",
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        },
         bottomBar = {
             Surface(
                 modifier = Modifier
@@ -662,17 +636,6 @@ fun LedgerDashboard(
                 )
             }
         }
-    }
-
-    if (showAddDialog) {
-        AddTransactionDialog(
-            initialType = transactionTypeToAdd,
-            onDismiss = { showAddDialog = false },
-            onConfirm = { title, amount, type, category, notes ->
-                viewModel.addTransaction(title, amount, type, category, notes)
-                showAddDialog = false
-            }
-        )
     }
 }
 
@@ -1482,220 +1445,6 @@ fun getCategoryEmoji(category: String, type: String): String {
         "تسوق" -> "🛍️"
         "فواتير" -> "📄"
         else -> if (type == "INCOME") "💰" else "💸"
-    }
-}
-
-@Composable
-fun AddTransactionDialog(
-    initialType: String,
-    onDismiss: () -> Unit,
-    onConfirm: (title: String, amount: Double, type: String, category: String, notes: String) -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var amountText by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(initialType) } // "INCOME" or "EXPENSE"
-    var notes by remember { mutableStateOf("") }
-
-    val categoriesIncome = listOf("راتب", "استثمار", "بيع", "أخرى")
-    val categoriesExpense = listOf("طعام", "إيجار", "مواصلات", "تسوق", "فواتير", "أخرى")
-    var selectedCategory by remember(type) {
-        mutableStateOf(if (type == "INCOME") categoriesIncome[0] else categoriesExpense[0])
-    }
-
-    var showError by remember { mutableStateOf(false) }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "إضافة عملية جديدة",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color(0xFF1D1B20)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF3EDF7), shape = RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (type == "INCOME") Color(0xFF2E7D32) else Color.Transparent)
-                            .clickable { type = "INCOME" },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "دخل (+)",
-                            fontWeight = FontWeight.Bold,
-                            color = if (type == "INCOME") Color.White else Color(0xFF49454F)
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (type == "EXPENSE") Color(0xFFC62828) else Color.Transparent)
-                            .clickable { type = "EXPENSE" },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "مصروف (-)",
-                            fontWeight = FontWeight.Bold,
-                            color = if (type == "EXPENSE") Color.White else Color(0xFF49454F)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = {
-                        title = it
-                        showError = false
-                    },
-                    label = { Text("عنوان العملية (مثال: البقالة)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = {
-                        amountText = it
-                        showError = false
-                    },
-                    label = { Text("المبلغ (د.إ)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "التصنيف",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.Start),
-                    color = Color(0xFF1D1B20)
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                val currentCategories = if (type == "INCOME") categoriesIncome else categoriesExpense
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        currentCategories.take(3).forEach { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        currentCategories.drop(3).forEach { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("ملاحظات إضافية (اختياري)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                if (showError) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "الرجاء إدخال عنوان ومبلغ صحيحين!",
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    TextButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("إلغاء", fontWeight = FontWeight.SemiBold, color = Color(0xFF49454F))
-                    }
-
-                    Button(
-                        onClick = {
-                            val amount = amountText.toDoubleOrNull()
-                            if (title.isNotBlank() && amount != null && amount > 0) {
-                                onConfirm(title, amount, type, selectedCategory, notes)
-                            } else {
-                                showError = true
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (type == "INCOME") Color(0xFF2E7D32) else Color(0xFFC62828)
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("تأكيد", fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-            }
-        }
     }
 }
 
