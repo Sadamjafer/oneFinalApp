@@ -77,4 +77,30 @@ interface TransactionDao {
 
     @Query("DELETE FROM expense_types WHERE accountId = :accountId")
     suspend fun deleteExpenseTypesByAccountId(accountId: Long)
+
+    // Clients operations
+    @Query("SELECT * FROM clients WHERE accountId = :accountId ORDER BY timestamp DESC")
+    fun getClientsByAccount(accountId: Long): Flow<List<Client>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertClient(client: Client): Long
+
+    @Update
+    suspend fun updateClient(client: Client)
+
+    @Delete
+    suspend fun deleteClient(client: Client)
+
+    // Client operations operations
+    @Query("SELECT * FROM client_operations WHERE clientId = :clientId ORDER BY timestamp DESC")
+    fun getOperationsByClient(clientId: Long): Flow<List<ClientOperation>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertClientOperation(operation: ClientOperation): Long
+
+    @Update
+    suspend fun updateClientOperation(operation: ClientOperation)
+
+    @Delete
+    suspend fun deleteClientOperation(operation: ClientOperation)
 }

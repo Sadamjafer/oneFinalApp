@@ -7,6 +7,8 @@ import com.example.data.Account
 import com.example.data.Transaction
 import com.example.data.IncomeType
 import com.example.data.ExpenseType
+import com.example.data.Client
+import com.example.data.ClientOperation
 import com.example.data.TransactionRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -68,6 +70,17 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     val expenseTypes: StateFlow<List<ExpenseType>> = activeAccountId
         .flatMapLatest { id ->
             if (id != null) repository.getExpenseTypesForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Load clients for the currently active account
+    val clients: StateFlow<List<Client>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getClientsForAccount(id) else flowOf(emptyList())
         }
         .stateIn(
             scope = viewModelScope,
@@ -282,6 +295,62 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     fun deleteExpenseType(expenseType: ExpenseType) {
         viewModelScope.launch {
             repository.deleteExpenseType(expenseType)
+        }
+    }
+
+    // Client operations
+    fun addClient(name: String, linkedExpenseCategory: String) {
+        val accountId = activeAccountId.value ?: return
+        viewModelScope.launch {
+            repository.insertClient(Client(accountId = accountId, name = name, linkedExpenseCategory = linkedExpenseCategory))
+        }
+    }
+
+    fun updateClient(client: Client, newName: String, newLinkedExpenseCategory: String) {
+        viewModelScope.launch {
+            repository.updateClient(client.copy(name = newName, linkedExpenseCategory = newLinkedExpenseCategory))
+        }
+    }
+
+    fun deleteClient(client: Client) {
+        viewModelScope.launch {
+            repository.deleteClient(client)
+        }
+    }
+
+    // Client operations
+    fun getClientOperations(clientId: Long): Flow<List<ClientOperation>> {
+        return repository.getOperationsForClient(clientId)
+    }
+
+    fun addClientOperation(clientId: Long, type: String, amount: Double, title: String) {
+        viewModelScope.launch {
+            repository.insertClientOperation(
+                ClientOperation(
+                    clientId = clientId,
+                    type = type,
+                    amount = amount,
+                    title = title
+                )
+            )
+        }
+    }
+
+    fun updateClientOperation(operation: ClientOperation, newType: String, newAmount: Double, newTitle: String) {
+        viewModelScope.launch {
+            repository.updateClientOperation(
+                operation.copy(
+                    type = newType,
+                    amount = newAmount,
+                    title = newTitle
+                )
+            )
+        }
+    }
+
+    fun deleteClientOperation(operation: ClientOperation) {
+        viewModelScope.launch {
+            repository.deleteClientOperation(operation)
         }
     }
 }

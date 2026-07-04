@@ -47,6 +47,7 @@ import com.example.ui.TransactionViewModelFactory
 import com.example.ui.IncomeScreenView
 import com.example.ui.ExpenseScreenView
 import com.example.ui.ReportsScreenView
+import com.example.ui.ClientsScreenView
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -64,22 +65,22 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val prefs = remember { context.getSharedPreferences("app_settings", Context.MODE_PRIVATE) }
             var isDarkMode by remember { mutableStateOf(prefs.getBoolean("is_dark_mode", false)) }
-            var isFontLarge by remember { mutableStateOf(prefs.getBoolean("is_font_large", false)) }
+            var fontScale by remember { mutableStateOf(prefs.getFloat("font_scale", 1.0f)) }
 
             val onThemeChange: (Boolean) -> Unit = { dark ->
                 isDarkMode = dark
                 prefs.edit().putBoolean("is_dark_mode", dark).apply()
             }
-            val onFontLargeChange: (Boolean) -> Unit = { large ->
-                isFontLarge = large
-                prefs.edit().putBoolean("is_font_large", large).apply()
+            val onFontScaleChange: (Float) -> Unit = { scale ->
+                fontScale = scale
+                prefs.edit().putFloat("font_scale", scale).apply()
             }
 
             MyApplicationTheme(darkTheme = isDarkMode) {
                 val currentDensity = LocalDensity.current
                 val customDensity = Density(
                     density = currentDensity.density,
-                    fontScale = currentDensity.fontScale * (if (isFontLarge) 1.15f else 1.0f)
+                    fontScale = currentDensity.fontScale * fontScale
                 )
                 CompositionLocalProvider(
                     LocalLayoutDirection provides LayoutDirection.Rtl,
@@ -93,8 +94,8 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             isDarkMode = isDarkMode,
                             onThemeChange = onThemeChange,
-                            isFontLarge = isFontLarge,
-                            onFontLargeChange = onFontLargeChange
+                            fontScale = fontScale,
+                            onFontScaleChange = onFontScaleChange
                         )
                     }
                 }
@@ -109,13 +110,14 @@ fun LedgerDashboard(
     viewModel: TransactionViewModel,
     isDarkMode: Boolean,
     onThemeChange: (Boolean) -> Unit,
-    isFontLarge: Boolean,
-    onFontLargeChange: (Boolean) -> Unit
+    fontScale: Float,
+    onFontScaleChange: (Float) -> Unit
 ) {
     val transactions by viewModel.allTransactions.collectAsState()
     val totalIncome by viewModel.totalIncome.collectAsState()
     val totalExpenses by viewModel.totalExpenses.collectAsState()
     val currentBalance by viewModel.currentBalance.collectAsState()
+
     val accounts by viewModel.allAccounts.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
 
@@ -132,159 +134,47 @@ fun LedgerDashboard(
 
     Scaffold(
         bottomBar = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                tonalElevation = 2.dp
+            NavigationBar(
+                modifier = Modifier.fillMaxWidth().shadow(8.dp),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 8.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding(),
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Home Tab
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clickable { selectedTab = "HOME" }
-                            .alpha(if (selectedTab == "HOME") 1.0f else 0.6f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(32.dp)
-                                .background(
-                                    if (selectedTab == "HOME") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("🏠", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "الرئيسية",
-                            fontSize = 10.sp,
-                            fontWeight = if (selectedTab == "HOME") FontWeight.Bold else FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                val tabs = listOf(
+                    Triple("HOME", "الرئيسية", Icons.Filled.Home),
+                    Triple("INCOME_SCREEN", "الإيرادات", Icons.Filled.TrendingUp),
+                    Triple("EXPENSE_SCREEN", "المصروفات", Icons.Filled.TrendingDown),
+                    Triple("CLIENTS_SCREEN", "العملاء", Icons.Filled.Person),
+                    Triple("REPORTS_SCREEN", "التقارير", Icons.Filled.PieChart),
+                    Triple("SETTINGS", "الإعدادات", Icons.Filled.Settings)
+                )
 
-                    // Revenues Tab
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clickable { selectedTab = "INCOME_SCREEN" }
-                            .alpha(if (selectedTab == "INCOME_SCREEN") 1.0f else 0.6f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(32.dp)
-                                .background(
-                                    if (selectedTab == "INCOME_SCREEN") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("💰", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "الإيرادات",
-                            fontSize = 10.sp,
-                            fontWeight = if (selectedTab == "INCOME_SCREEN") FontWeight.Bold else FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                tabs.forEach { (tabId, tabName, tabIcon) ->
+                    val isSelected = selectedTab == tabId
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = { selectedTab = tabId },
+                        icon = {
+                            Icon(
+                                imageVector = tabIcon,
+                                contentDescription = tabName
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = tabName,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer
                         )
-                    }
-
-                    // Expenses Tab
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clickable { selectedTab = "EXPENSE_SCREEN" }
-                            .alpha(if (selectedTab == "EXPENSE_SCREEN") 1.0f else 0.6f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(32.dp)
-                                .background(
-                                    if (selectedTab == "EXPENSE_SCREEN") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("📉", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "المصروفات",
-                            fontSize = 10.sp,
-                            fontWeight = if (selectedTab == "EXPENSE_SCREEN") FontWeight.Bold else FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Reports Tab
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clickable { selectedTab = "REPORTS_SCREEN" }
-                            .alpha(if (selectedTab == "REPORTS_SCREEN") 1.0f else 0.6f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(32.dp)
-                                .background(
-                                    if (selectedTab == "REPORTS_SCREEN") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("📊", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "التقارير",
-                            fontSize = 10.sp,
-                            fontWeight = if (selectedTab == "REPORTS_SCREEN") FontWeight.Bold else FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Account / Settings Tab
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clickable { selectedTab = "SETTINGS" }
-                            .alpha(if (selectedTab == "SETTINGS") 1.0f else 0.6f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(32.dp)
-                                .background(
-                                    if (selectedTab == "SETTINGS") MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                    shape = RoundedCornerShape(16.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("⚙️", fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "الإعدادات",
-                            fontSize = 10.sp,
-                            fontWeight = if (selectedTab == "SETTINGS") FontWeight.Bold else FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    )
                 }
             }
         },
@@ -346,7 +236,7 @@ fun LedgerDashboard(
                             expanded = showAccountsMenu,
                             onDismissRequest = { showAccountsMenu = false },
                             modifier = Modifier
-                                .background(Color.White)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .widthIn(min = 220.dp)
                         ) {
                             Text(
@@ -475,58 +365,6 @@ fun LedgerDashboard(
                         income = totalIncome,
                         expenses = totalExpenses
                     )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Quick Actions Label
-                    Text(
-                        text = "الإجراءات السريعة",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF49454F),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Quick Actions Grid
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        QuickActionButton(
-                            icon = "💸",
-                            label = "دخل (+)",
-                            onClick = {
-                                selectedTab = "INCOME_SCREEN"
-                            },
-                            modifier = Modifier.weight(1f).testTag("add_income_quick_button")
-                        )
-                        QuickActionButton(
-                            icon = "🛒",
-                            label = "مصروف (-)",
-                            onClick = {
-                                selectedTab = "EXPENSE_SCREEN"
-                            },
-                            modifier = Modifier.weight(1f).testTag("add_expense_quick_button")
-                        )
-                        QuickActionButton(
-                            icon = "📊",
-                            label = "التقارير",
-                            onClick = {
-                                filterType = if (filterType == "ALL") "EXPENSE" else "ALL"
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        QuickActionButton(
-                            icon = "💼",
-                            label = "حساب جديد",
-                            onClick = { showAddAccountDialog = true },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -658,14 +496,19 @@ fun LedgerDashboard(
                     ReportsScreenView(viewModel = viewModel)
                 }
             }
+            "CLIENTS_SCREEN" -> {
+                Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                    ClientsScreenView(viewModel = viewModel)
+                }
+            }
             "SETTINGS" -> {
                 // Settings screen inside Scaffold
                 AccountsSettingsView(
                     viewModel = viewModel,
                     isDarkMode = isDarkMode,
                     onThemeChange = onThemeChange,
-                    isFontLarge = isFontLarge,
-                    onFontLargeChange = onFontLargeChange,
+                    fontScale = fontScale,
+                    onFontScaleChange = onFontScaleChange,
                     onNavigateBack = { selectedTab = "HOME" }
                 )
             }
@@ -678,8 +521,8 @@ fun AccountsSettingsView(
     viewModel: TransactionViewModel,
     isDarkMode: Boolean,
     onThemeChange: (Boolean) -> Unit,
-    isFontLarge: Boolean,
-    onFontLargeChange: (Boolean) -> Unit,
+    fontScale: Float,
+    onFontScaleChange: (Float) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val accounts by viewModel.allAccounts.collectAsState()
@@ -821,7 +664,7 @@ fun AccountsSettingsView(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
-                // Font Size Switch Row
+                // Font Size Adjust Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -829,25 +672,44 @@ fun AccountsSettingsView(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "تكبير الخط (درجة واحدة)",
+                            text = "تغيير حجم الخط",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "زيادة حجم الخط في جميع شاشات التطبيق لسهولة القراءة",
+                            text = "تكبير أو تصغير حجم الخط لجميع شاشات التطبيق",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
-                        checked = isFontLarge,
-                        onCheckedChange = onFontLargeChange,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = { onFontScaleChange(fontScale + 0.1f) },
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                                .size(32.dp)
+                        ) {
+                            Text("+", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                        Text(
+                            text = String.format("%.1fx", fontScale),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                    )
+                        IconButton(
+                            onClick = { onFontScaleChange(maxOf(0.7f, fontScale - 0.1f)) },
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+                                .size(32.dp)
+                        ) {
+                            Text("-", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
                 }
             }
         }
@@ -1223,23 +1085,24 @@ fun BalanceCard(
     income: Double,
     expenses: Double
 ) {
-    val formatter = remember { DecimalFormat("#,##0.00") }
+    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00") }
     val formattedBalance = formatter.format(balance)
     val formattedIncome = formatter.format(income)
     val formattedExpenses = formatter.format(expenses)
 
-    Card(
-        modifier = Modifier
+    androidx.compose.material3.Card(
+        modifier = androidx.compose.ui.Modifier
             .fillMaxWidth()
-            .shadow(elevation = 2.dp, shape = RoundedCornerShape(28.dp)),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFEADDFF)
+            .shadow(elevation = 8.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), spotColor = androidx.compose.material3.MaterialTheme.colorScheme.primary),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer,
+            contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
         )
     ) {
         Column(
-            modifier = Modifier
-                .padding(24.dp)
+            modifier = androidx.compose.ui.Modifier
+                .padding(28.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.Start
         ) {
@@ -1247,83 +1110,88 @@ fun BalanceCard(
                 text = "الرصيد الإجمالي المتبقي",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF21005D).copy(alpha = 0.7f)
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+            Text(
+                text = "$formattedBalance ج.س",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 38.sp,
+                letterSpacing = (-1).sp,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(modifier = androidx.compose.ui.Modifier.height(28.dp))
             Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = formattedBalance,
-                    fontSize = 36.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF21005D)
-                )
-                Text(
-                    text = "ج.س",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF21005D)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 // Income
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(Color.White.copy(alpha = 0.40f), shape = RoundedCornerShape(16.dp))
-                        .padding(12.dp)
-                ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = androidx.compose.ui.Modifier
+                                .size(24.dp)
+                                .background(androidx.compose.ui.graphics.Color(0xFFD1FAE5), shape = CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDownward,
+                                contentDescription = "Income",
+                                tint = androidx.compose.ui.graphics.Color(0xFF047857),
+                                modifier = androidx.compose.ui.Modifier.size(14.dp)
+                            )
+                        }
+                        Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
+                        Text(
+                            text = "الدخل",
+                            fontSize = 12.sp,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
                     Text(
-                        text = "مدخولات",
-                        fontSize = 11.sp,
+                        text = "$formattedIncome ج.س",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF21005D)
-                    )
-                    Text(
-                        text = "+$formattedIncome",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1B5E20),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
 
-                // Expense
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(Color.White.copy(alpha = 0.40f), shape = RoundedCornerShape(16.dp))
-                        .padding(12.dp)
-                ) {
+                // Expenses
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "المنصرف",
+                            fontSize = 12.sp,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                        Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
+                        Box(
+                            modifier = androidx.compose.ui.Modifier
+                                .size(24.dp)
+                                .background(androidx.compose.ui.graphics.Color(0xFFFFE4E6), shape = CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowUpward,
+                                contentDescription = "Expense",
+                                tint = androidx.compose.ui.graphics.Color(0xFFBE123C),
+                                modifier = androidx.compose.ui.Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
                     Text(
-                        text = "مصروفات",
-                        fontSize = 11.sp,
+                        text = "$formattedExpenses ج.س",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF21005D)
-                    )
-                    Text(
-                        text = "-$formattedExpenses",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFB71C1C),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
         }
     }
 }
-
 @Composable
 fun QuickActionButton(
     icon: String,
@@ -1340,8 +1208,8 @@ fun QuickActionButton(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .background(Color(0xFFF3EDF7), shape = RoundedCornerShape(16.dp))
-                .shadow(elevation = 1.dp, shape = RoundedCornerShape(16.dp))
+                .background(androidx.compose.material3.MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                .shadow(elevation = 1.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -1352,122 +1220,115 @@ fun QuickActionButton(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF49454F),
-            textAlign = TextAlign.Center
+            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
 
 @Composable
 fun TransactionItem(
-    transaction: Transaction
+    transaction: com.example.data.Transaction
 ) {
-    val formatter = remember { DecimalFormat("#,##0.00") }
+    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00") }
     val formattedAmount = formatter.format(transaction.amount)
-    val formattedDate = remember(transaction.timestamp) {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        sdf.format(Date(transaction.timestamp))
+    val formattedDate = androidx.compose.runtime.remember(transaction.timestamp) {
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+        sdf.format(java.util.Date(transaction.timestamp))
     }
 
-    val typeColor = if (transaction.type == "INCOME") Color(0xFF2E7D32) else Color(0xFFC62828)
-    val iconBg = if (transaction.type == "INCOME") Color(0xFFD3E3FD) else Color(0xFFFFD8E4)
+    val isIncome = transaction.type == "INCOME"
+    val typeColor = if (isIncome) androidx.compose.ui.graphics.Color(0xFF10B981) else androidx.compose.ui.graphics.Color(0xFFF43F5E)
+    val iconBg = if (isIncome) androidx.compose.ui.graphics.Color(0xFFD1FAE5) else androidx.compose.ui.graphics.Color(0xFFFFE4E6)
+    val iconContentColor = if (isIncome) androidx.compose.ui.graphics.Color(0xFF047857) else androidx.compose.ui.graphics.Color(0xFFBE123C)
     val categoryEmoji = getCategoryEmoji(transaction.category, transaction.type)
 
-    Card(
-        modifier = Modifier
+    androidx.compose.material3.Card(
+        modifier = androidx.compose.ui.Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = Color(0xFFCAC4D0).copy(alpha = 0.2f),
-                shape = RoundedCornerShape(16.dp)
-            )
+            .shadow(elevation = 2.dp, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), spotColor = androidx.compose.ui.graphics.Color(0x1A000000))
             .testTag("transaction_item_${transaction.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, androidx.compose.material3.MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
     ) {
         Row(
-            modifier = Modifier
+            modifier = androidx.compose.ui.Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Circle with Emoji Icon
             Box(
-                modifier = Modifier
-                    .size(44.dp)
+                modifier = androidx.compose.ui.Modifier
+                    .size(48.dp)
                     .background(iconBg, shape = CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = categoryEmoji, fontSize = 20.sp)
+                Text(text = categoryEmoji, fontSize = 22.sp)
             }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
+            Spacer(modifier = androidx.compose.ui.Modifier.width(16.dp))
             Column(
-                modifier = Modifier.weight(1f)
+                modifier = androidx.compose.ui.Modifier.weight(1f)
             ) {
                 Text(
                     text = transaction.title,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = Color(0xFF1D1B20),
+                    fontSize = 16.sp,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = transaction.category,
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF6750A4),
-                        modifier = Modifier
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                        modifier = androidx.compose.ui.Modifier
                             .background(
-                                Color(0xFFE8DEF8),
-                                shape = RoundedCornerShape(4.dp)
+                                androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
                             )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                     Text(
                         text = formattedDate,
-                        fontSize = 10.sp,
-                        color = Color(0xFF49454F).copy(alpha = 0.8f)
+                        fontSize = 11.sp,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (transaction.notes.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
                     Text(
                         text = transaction.notes,
-                        fontSize = 11.sp,
-                        color = Color(0xFF49454F).copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
+            Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "${if (transaction.type == "INCOME") "+" else "-"}$formattedAmount ج.س",
+                    text = "${if (isIncome) "+" else "-"}$formattedAmount ج.س",
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
                     color = typeColor
                 )
             }
         }
     }
 }
-
 fun getCategoryEmoji(category: String, type: String): String {
     return when (category) {
         "راتب" -> "💼"

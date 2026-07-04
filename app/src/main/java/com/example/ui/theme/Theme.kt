@@ -13,37 +13,37 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
   darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
-    background = Color(0xFF141218),
-    surface = Color(0xFF211F26),
-    surfaceVariant = Color(0xFF49454F),
-    secondaryContainer = Color(0xFF4A4458),
-    onPrimary = Color(0xFF381E72),
-    onSecondary = Color(0xFF332D41),
-    onTertiary = Color(0xFF492532),
-    onBackground = Color(0xFFE6E1E5),
-    onSurface = Color(0xFFE6E1E5),
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99)
+    primary = PrimaryIndigoLight,
+    secondary = AccentEmeraldLight,
+    tertiary = AccentRoseLight,
+    background = BackgroundDark,
+    surface = SurfaceDark,
+    surfaceVariant = OutlineDark,
+    secondaryContainer = SurfaceDark,
+    onPrimary = TextPrimaryLight,
+    onSecondary = TextPrimaryLight,
+    onTertiary = TextPrimaryLight,
+    onBackground = TextPrimaryDark,
+    onSurface = TextPrimaryDark,
+    onSurfaceVariant = TextSecondaryDark,
+    outline = OutlineDark
   )
 
 private val LightColorScheme =
   lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    background = WarmPeachBg,
-    surface = Color.White,
+    primary = PrimaryIndigo,
+    secondary = AccentEmerald,
+    tertiary = AccentRose,
+    background = BackgroundLight,
+    surface = SurfaceLight,
     surfaceVariant = SurfaceVariantLight,
     secondaryContainer = SecondaryContainerLight,
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color.White,
-    onBackground = DeepCharcoal,
-    onSurface = DeepCharcoal,
-    onSurfaceVariant = DeepCharcoal,
+    onBackground = TextPrimaryLight,
+    onSurface = TextPrimaryLight,
+    onSurfaceVariant = TextSecondaryLight,
     outline = OutlineColor,
   )
 

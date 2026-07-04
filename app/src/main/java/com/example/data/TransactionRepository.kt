@@ -88,4 +88,38 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     suspend fun deleteById(id: Long) {
         transactionDao.deleteTransactionById(id)
     }
+
+    // Clients Operations
+    fun getClientsForAccount(accountId: Long): Flow<List<Client>> {
+        return transactionDao.getClientsByAccount(accountId)
+    }
+
+    suspend fun insertClient(client: Client): Long {
+        return transactionDao.insertClient(client)
+    }
+
+    suspend fun updateClient(client: Client) {
+        transactionDao.updateClient(client)
+    }
+
+    suspend fun deleteClient(client: Client) {
+        transactionDao.deleteClient(client)
+    }
+
+    // Client Operations operations
+    fun getOperationsForClient(clientId: Long): Flow<List<ClientOperation>> {
+        return transactionDao.getOperationsByClient(clientId)
+    }
+
+    suspend fun insertClientOperation(operation: ClientOperation): Long {
+        return transactionDao.insertClientOperation(operation)
+    }
+
+    suspend fun updateClientOperation(operation: ClientOperation) {
+        transactionDao.updateClientOperation(operation)
+    }
+
+    suspend fun deleteClientOperation(operation: ClientOperation) {
+        transactionDao.deleteClientOperation(operation)
+    }
 }

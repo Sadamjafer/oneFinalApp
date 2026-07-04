@@ -19,6 +19,11 @@ import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
+data class ReportRowData(
+    val statement: String,
+    val amount: Double
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreenView(viewModel: TransactionViewModel) {
@@ -36,6 +41,10 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
     val startDatePickerState = rememberDatePickerState()
     val endDatePickerState = rememberDatePickerState()
 
+    val currentCalendar = remember { Calendar.getInstance() }
+    var selectedMonth by remember { mutableStateOf(currentCalendar.get(Calendar.MONTH)) }
+    var selectedYear by remember { mutableStateOf(currentCalendar.get(Calendar.YEAR)) }
+    
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
     val sdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()) }
 
@@ -88,11 +97,11 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF7F9FC))
+            .background(MaterialTheme.colorScheme.background)
     ) {
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.primary
         ) {
             tabs.forEachIndexed { index, title ->
@@ -106,10 +115,11 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
         
         val calendar = Calendar.getInstance()
         
-        val filteredTransactions = remember(selectedTab, allTransactions, startDateStr, endDateStr) {
+        val filteredTransactions = remember(selectedTab, allTransactions, startDateStr, endDateStr, selectedMonth, selectedYear) {
             when (selectedTab) {
                 0 -> { // Daily
                     val todayStart = calendar.apply {
+                        timeInMillis = System.currentTimeMillis()
                         set(Calendar.HOUR_OF_DAY, 0)
                         set(Calendar.MINUTE, 0)
                         set(Calendar.SECOND, 0)
@@ -119,13 +129,24 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
                 }
                 1 -> { // Monthly
                     val monthStart = calendar.apply {
+                        set(Calendar.YEAR, selectedYear)
+                        set(Calendar.MONTH, selectedMonth)
                         set(Calendar.DAY_OF_MONTH, 1)
                         set(Calendar.HOUR_OF_DAY, 0)
                         set(Calendar.MINUTE, 0)
                         set(Calendar.SECOND, 0)
                         set(Calendar.MILLISECOND, 0)
                     }.timeInMillis
-                    allTransactions.filter { it.timestamp >= monthStart }
+                    val monthEnd = calendar.apply {
+                        set(Calendar.YEAR, selectedYear)
+                        set(Calendar.MONTH, selectedMonth)
+                        set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                        set(Calendar.HOUR_OF_DAY, 23)
+                        set(Calendar.MINUTE, 59)
+                        set(Calendar.SECOND, 59)
+                        set(Calendar.MILLISECOND, 999)
+                    }.timeInMillis
+                    allTransactions.filter { it.timestamp in monthStart..monthEnd }
                 }
                 2 -> { // Custom
                     try {
@@ -153,6 +174,58 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
         val totalIncome = filteredTransactions.filter { it.type == "INCOME" }.sumOf { it.amount }
         val totalExpense = filteredTransactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
         val netBalance = totalIncome - totalExpense
+        
+        if (selectedTab == 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { 
+                    if (selectedMonth == 0) {
+                        selectedMonth = 11
+                        selectedYear--
+                    } else {
+                        selectedMonth--
+                    }
+                }) {
+                    Text("▶", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                }
+                
+                val monthName = remember(selectedMonth, selectedYear) {
+                    SimpleDateFormat("MMMM yyyy", Locale("ar")).format(
+                        Calendar.getInstance().apply {
+                            set(Calendar.YEAR, selectedYear)
+                            set(Calendar.MONTH, selectedMonth)
+                            set(Calendar.DAY_OF_MONTH, 1)
+                        }.time
+                    )
+                }
+                
+                Text(
+                    text = monthName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                IconButton(onClick = { 
+                    if (selectedMonth == 11) {
+                        selectedMonth = 0
+                        selectedYear++
+                    } else {
+                        selectedMonth++
+                    }
+                }) {
+                    Text("◀", fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
         
         if (selectedTab == 2) {
             Row(
@@ -192,130 +265,244 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
             }
         }
         
-        // Summary Cards
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            SummaryCard(
-                title = "إجمالي الإيرادات",
-                amount = "${decimalFormat.format(totalIncome)} ج.س",
-                color = Color(0xFF2E7D32),
-                modifier = Modifier.weight(1f)
-            )
-            SummaryCard(
-                title = "إجمالي المصروفات",
-                amount = "${decimalFormat.format(totalExpense)} ج.س",
-                color = Color(0xFFC62828),
-                modifier = Modifier.weight(1f)
-            )
+        val incomesData = if (selectedTab == 0) {
+            filteredTransactions.filter { it.type == "INCOME" }.sortedByDescending { it.timestamp }.map {
+                ReportRowData(statement = "${it.title} (${it.category})", amount = it.amount)
+            }
+        } else {
+            filteredTransactions.filter { it.type == "INCOME" }
+                .groupBy { it.category }
+                .map { (category, txs) ->
+                    ReportRowData(statement = category, amount = txs.sumOf { it.amount })
+                }
+                .sortedByDescending { it.amount }
+        }
+
+        val expensesData = if (selectedTab == 0) {
+            filteredTransactions.filter { it.type == "EXPENSE" }.sortedByDescending { it.timestamp }.map {
+                ReportRowData(statement = "${it.title} (${it.category})", amount = it.amount)
+            }
+        } else {
+            filteredTransactions.filter { it.type == "EXPENSE" }
+                .groupBy { it.category }
+                .map { (category, txs) ->
+                    ReportRowData(statement = category, amount = txs.sumOf { it.amount })
+                }
+                .sortedByDescending { it.amount }
         }
         
+        ReportTableView(
+            incomes = incomesData,
+            expenses = expensesData,
+            decimalFormat = decimalFormat,
+            totalIncome = totalIncome,
+            totalExpense = totalExpense,
+            netBalance = netBalance
+        )
+    }
+}
+
+@Composable
+fun ReportTableView(
+    incomes: List<ReportRowData>,
+    expenses: List<ReportRowData>,
+    decimalFormat: DecimalFormat,
+    totalIncome: Double,
+    totalExpense: Double,
+    netBalance: Double
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Table 1: Incomes
+        item {
+            ReportTable(
+                title = "جدول الإيرادات",
+                rows = incomes,
+                totalAmount = totalIncome,
+                decimalFormat = decimalFormat,
+                headerColor = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        // Table 2: Expenses
+        item {
+            ReportTable(
+                title = "جدول المصروفات",
+                rows = expenses,
+                totalAmount = totalExpense,
+                decimalFormat = decimalFormat,
+                headerColor = MaterialTheme.colorScheme.error
+            )
+        }
+
+        // Table 3: Summary
+        item {
+            SummaryTable(
+                totalIncome = totalIncome,
+                totalExpense = totalExpense,
+                netBalance = netBalance,
+                decimalFormat = decimalFormat
+            )
+        }
+    }
+}
+
+@Composable
+fun ReportTable(
+    title: String,
+    rows: List<ReportRowData>,
+    totalAmount: Double,
+    decimalFormat: DecimalFormat,
+    headerColor: Color
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(1.dp)
+            .background(Color.LightGray) // simple border effect
+            .padding(1.dp)
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        // Title
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(if (netBalance >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE))
-                .padding(16.dp),
+                .background(headerColor.copy(alpha = 0.1f))
+                .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("صافي الربح / الخسارة", fontSize = 14.sp, color = Color.Gray)
-                Text(
-                    text = "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (netBalance >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
-                )
-            }
+            Text(title, fontWeight = FontWeight.Bold, color = headerColor, fontSize = 16.sp)
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Text(
-            text = "تفاصيل الحركات",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(filteredTransactions.sortedByDescending { it.timestamp }) { transaction ->
-                TransactionReportItem(transaction, decimalFormat)
-            }
-        }
-    }
-}
 
-@Composable
-fun SummaryCard(title: String, amount: String, color: Color, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(title, fontSize = 12.sp, color = Color.Gray)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(amount, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = color)
-        }
-    }
-}
-
-@Composable
-fun TransactionReportItem(transaction: Transaction, decimalFormat: DecimalFormat) {
-    val isIncome = transaction.type == "INCOME"
-    val color = if (isIncome) Color(0xFF2E7D32) else Color(0xFFC62828)
-    val sdf = remember { SimpleDateFormat("yyyy/MM/dd hh:mm a", Locale.getDefault()) }
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+        // Headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(12.dp)
         ) {
-            Box(
+            Text("البيان", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text("المبلغ", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+        }
+        
+        Divider(color = Color.LightGray)
+
+        // Rows
+        rows.forEach { row ->
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(color.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(12.dp)
             ) {
-                Text(if (isIncome) "+" else "-", color = color, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = row.statement, 
+                    modifier = Modifier.weight(1f),
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = "${decimalFormat.format(row.amount)} ج.س", 
+                    modifier = Modifier.weight(1f),
+                    fontSize = 14.sp,
+                    color = headerColor
+                )
             }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(transaction.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(transaction.category, fontSize = 12.sp, color = Color.Gray)
-                Text(sdf.format(Date(transaction.timestamp)), fontSize = 10.sp, color = Color.Gray)
-            }
-            
+            Divider(color = Color.LightGray)
+        }
+
+        // Footer
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(headerColor.copy(alpha = 0.05f))
+                .padding(12.dp)
+        ) {
+            Text("الإجمالي", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
             Text(
-                text = "${decimalFormat.format(transaction.amount)} ج.س",
+                text = "${decimalFormat.format(totalAmount)} ج.س",
+                modifier = Modifier.weight(1f),
                 fontWeight = FontWeight.Bold,
-                color = color,
-                fontSize = 16.sp
+                color = headerColor
+            )
+        }
+    }
+}
+
+@Composable
+fun SummaryTable(
+    totalIncome: Double,
+    totalExpense: Double,
+    netBalance: Double,
+    decimalFormat: DecimalFormat
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.LightGray)
+            .padding(1.dp)
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        // Title
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF3F51B5).copy(alpha = 0.1f))
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("جدول الخلاصة", fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5), fontSize = 16.sp)
+        }
+
+        // Income Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Text("إجمالي الإيرادات", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+            Text(
+                text = "${decimalFormat.format(totalIncome)} ج.س",
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Divider(color = Color.LightGray)
+
+        // Expense Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Text("إجمالي المصروفات", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+            Text(
+                text = "${decimalFormat.format(totalExpense)} ج.س",
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Divider(color = Color.LightGray)
+
+        // Net Balance Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(if (netBalance >= 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer)
+                .padding(12.dp)
+        ) {
+            Text("صافي الربح", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text(
+                text = "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
+                modifier = Modifier.weight(1f),
+                color = if (netBalance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                fontWeight = FontWeight.Bold
             )
         }
     }
