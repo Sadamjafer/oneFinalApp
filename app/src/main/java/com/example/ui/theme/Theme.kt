@@ -11,11 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme =
-  darkColorScheme(
-    primary = PrimaryIndigoLight,
-    secondary = AccentEmeraldLight,
-    tertiary = AccentRoseLight,
+private val DarkColorScheme =  darkColorScheme(
+    primary = PrimaryBlueLight,
+    secondary = SecondaryBlueLight,
+    tertiary = TertiaryBlueLight,
     background = BackgroundDark,
     surface = SurfaceDark,
     surfaceVariant = OutlineDark,
@@ -29,11 +28,10 @@ private val DarkColorScheme =
     outline = OutlineDark
   )
 
-private val LightColorScheme =
-  lightColorScheme(
-    primary = PrimaryIndigo,
-    secondary = AccentEmerald,
-    tertiary = AccentRose,
+private val LightColorScheme =  lightColorScheme(
+    primary = PrimaryBlue,
+    secondary = SecondaryBlue,
+    tertiary = TertiaryBlue,
     background = BackgroundLight,
     surface = SurfaceLight,
     surfaceVariant = SurfaceVariantLight,
@@ -60,10 +58,13 @@ fun MyApplicationTheme(
         val context = LocalContext.current
         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
       }
-
       darkTheme -> DarkColorScheme
       else -> LightColorScheme
     }
 
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  MaterialTheme(
+    colorScheme = colorScheme,
+    typography = Typography,
+    content = content
+  )
 }

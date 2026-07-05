@@ -122,4 +122,21 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     suspend fun deleteClientOperation(operation: ClientOperation) {
         transactionDao.deleteClientOperation(operation)
     }
+
+    // Profit Deductions Operations
+    fun getProfitDeductionsForAccount(accountId: Long): Flow<List<ProfitDeduction>> {
+        return transactionDao.getProfitDeductionsByAccount(accountId)
+    }
+
+    suspend fun insertProfitDeduction(deduction: ProfitDeduction): Long {
+        return transactionDao.insertProfitDeduction(deduction)
+    }
+
+    suspend fun updateProfitDeduction(deduction: ProfitDeduction) {
+        transactionDao.updateProfitDeduction(deduction)
+    }
+
+    suspend fun deleteProfitDeduction(deduction: ProfitDeduction) {
+        transactionDao.deleteProfitDeduction(deduction)
+    }
 }

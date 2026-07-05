@@ -1,0 +1,3 @@
+import com.example.data.ProfitDeduction
+
+// Inside TransactionViewModel...

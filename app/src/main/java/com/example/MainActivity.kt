@@ -10,6 +10,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -29,12 +31,23 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.launch
+import com.example.util.DatabaseBackupHelper
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -90,13 +103,21 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        LedgerDashboard(
-                            viewModel = viewModel,
-                            isDarkMode = isDarkMode,
-                            onThemeChange = onThemeChange,
-                            fontScale = fontScale,
-                            onFontScaleChange = onFontScaleChange
-                        )
+                        var isAuthenticated by remember { mutableStateOf(false) }
+                        if (!isAuthenticated) {
+                            LoginScreen(
+                                prefs = prefs,
+                                onLoginSuccess = { isAuthenticated = true }
+                            )
+                        } else {
+                            LedgerDashboard(
+                                viewModel = viewModel,
+                                isDarkMode = isDarkMode,
+                                onThemeChange = onThemeChange,
+                                fontScale = fontScale,
+                                onFontScaleChange = onFontScaleChange
+                            )
+                        }
                     }
                 }
             }
@@ -134,17 +155,20 @@ fun LedgerDashboard(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.fillMaxWidth().shadow(8.dp),
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                tonalElevation = 8.dp
-            ) {
+            val scrollState = rememberScrollState()
+            Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).shadow(8.dp).horizontalScroll(scrollState)) {
+                NavigationBar(
+                    modifier = Modifier.width(600.dp),
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    tonalElevation = 0.dp
+                ) {
                 val tabs = listOf(
                     Triple("HOME", "الرئيسية", Icons.Filled.Home),
-                    Triple("INCOME_SCREEN", "الإيرادات", Icons.Filled.TrendingUp),
-                    Triple("EXPENSE_SCREEN", "المصروفات", Icons.Filled.TrendingDown),
+                    Triple("INCOME_SCREEN", "الدخل", Icons.Filled.TrendingUp),
+                    Triple("EXPENSE_SCREEN", "المنصرف", Icons.Filled.TrendingDown),
                     Triple("CLIENTS_SCREEN", "العملاء", Icons.Filled.Person),
+                    Triple("PROFIT_SCREEN", "الارباح", Icons.Filled.AttachMoney),
                     Triple("REPORTS_SCREEN", "التقارير", Icons.Filled.PieChart),
                     Triple("SETTINGS", "الإعدادات", Icons.Filled.Settings)
                 )
@@ -176,6 +200,7 @@ fun LedgerDashboard(
                         )
                     )
                 }
+            }
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -213,7 +238,7 @@ fun LedgerDashboard(
                                 text = currentAccount?.name ?: "تحميل الحساب...",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 24.sp,
-                                color = Color(0xFF1D1B20),
+                                color = MaterialTheme.colorScheme.onBackground,
                                 letterSpacing = (-0.5).sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -221,14 +246,14 @@ fun LedgerDashboard(
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "تبديل الحساب",
-                                tint = Color(0xFF6750A4),
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                         Text(
                             text = "انقر لتبديل أو إضافة محل تجاري جديد",
                             fontSize = 12.sp,
-                            color = Color(0xFF49454F).copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
 
                         // Dropdown menu showing all shops
@@ -243,10 +268,10 @@ fun LedgerDashboard(
                                 text = "المحلات والحسابات المسجلة",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF6750A4),
+                                color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
-                            HorizontalDivider(color = Color(0xFFCAC4D0).copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                             accounts.forEach { account ->
                                 DropdownMenuItem(
@@ -259,14 +284,14 @@ fun LedgerDashboard(
                                             Text(
                                                 text = account.name,
                                                 fontWeight = if (account.id == currentAccount?.id) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (account.id == currentAccount?.id) Color(0xFF6750A4) else Color(0xFF1D1B20),
+                                                color = if (account.id == currentAccount?.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                                 modifier = Modifier.weight(1f)
                                             )
                                             if (account.id == currentAccount?.id) {
                                                 Icon(
                                                     imageVector = Icons.Default.Check,
                                                     contentDescription = "نشط",
-                                                    tint = Color(0xFF6750A4),
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                             }
@@ -296,7 +321,7 @@ fun LedgerDashboard(
                                 )
                             }
 
-                            HorizontalDivider(color = Color(0xFFCAC4D0).copy(alpha = 0.4f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                             DropdownMenuItem(
                                 text = {
                                     Row(
@@ -306,12 +331,12 @@ fun LedgerDashboard(
                                         Icon(
                                             imageVector = Icons.Default.Add,
                                             contentDescription = "إضافة حساب",
-                                            tint = Color(0xFF6750A4),
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         Text(
                                             text = "إنشاء حساب/محل جديد",
-                                            color = Color(0xFF6750A4),
+                                            color = MaterialTheme.colorScheme.primary,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp
                                         )
@@ -325,20 +350,25 @@ fun LedgerDashboard(
                         }
                     }
 
-                    // Header shop-icon shortcut
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFFE8DEF8), shape = CircleShape)
-                            .clickable { showAddAccountDialog = true },
-                        contentAlignment = Alignment.Center
+                    // Header shortcuts
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Store,
-                            contentDescription = "المحلات التجارية",
-                            tint = Color(0xFF6750A4),
-                            modifier = Modifier.size(22.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), shape = CircleShape)
+                                .clickable { selectedTab = "SETTINGS" },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "الإعدادات",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
 
@@ -375,7 +405,7 @@ fun LedgerDashboard(
                         .fillMaxWidth()
                         .weight(1f)
                         .background(
-                            color = Color(0xFFF7F2FA),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                         )
                         .shadow(
@@ -396,7 +426,7 @@ fun LedgerDashboard(
                             text = "أحدث العمليات",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            color = Color(0xFF1D1B20)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
                         // Minimal Filter selection chips
@@ -414,7 +444,7 @@ fun LedgerDashboard(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(
-                                            if (isSelected) Color(0xFFE8DEF8) else Color.Transparent
+                                            if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                                         )
                                         .clickable { filterType = type }
                                         .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -424,7 +454,7 @@ fun LedgerDashboard(
                                         text = label,
                                         fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color(0xFF21005D) else Color(0xFF49454F)
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -447,13 +477,13 @@ fun LedgerDashboard(
                                 Icon(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = null,
-                                    tint = Color(0xFFCAC4D0),
+                                    tint = MaterialTheme.colorScheme.outline,
                                     modifier = Modifier.size(56.dp)
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
                                     text = "لا توجد أي عمليات مسجلة حالياً لهذا المحل.",
-                                    color = Color(0xFF49454F).copy(alpha = 0.6f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center
                                 )
@@ -501,6 +531,19 @@ fun LedgerDashboard(
                     ClientsScreenView(viewModel = viewModel)
                 }
             }
+            "PROFIT_SCREEN" -> {
+                if (currentAccount != null) {
+                    com.example.ui.ProfitScreenView(
+                        viewModel = viewModel,
+                        account = currentAccount!!,
+                        innerPadding = innerPadding
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("الرجاء إضافة محل تجاري أولاً")
+                    }
+                }
+            }
             "SETTINGS" -> {
                 // Settings screen inside Scaffold
                 AccountsSettingsView(
@@ -531,6 +574,36 @@ fun AccountsSettingsView(
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var accountToEdit by remember { mutableStateOf<Account?>(null) }
     var accountToDelete by remember { mutableStateOf<Account?>(null) }
+    var showChangePasswordDialog by remember { mutableStateOf(false) }
+    
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                val success = DatabaseBackupHelper.backupDatabase(context, it)
+                Toast.makeText(context, if (success) "تم النسخ الاحتياطي بنجاح" else "فشل النسخ الاحتياطي", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                val success = DatabaseBackupHelper.restoreDatabase(context, it)
+                if (success) {
+                    Toast.makeText(context, "تمت الاستعادة بنجاح، يرجى إعادة تشغيل التطبيق", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "فشل في الاستعادة", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -711,11 +784,77 @@ fun AccountsSettingsView(
                         }
                     }
                 }
+                
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                
+                // Change Password Row
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { showChangePasswordDialog = true }.padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "تغيير كلمة المرور",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "تحديث كلمة المرور المستخدمة لتسجيل الدخول",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "تغيير كلمة المرور",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "النسخ الاحتياطي والاستعادة",
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Text(
+            text = "احفظ ملف النسخة في Google Drive من خلال نافذة النظام",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = { backupLauncher.launch("simple_ledger_backup.zip") },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Icon(Icons.Default.CloudUpload, contentDescription = "نسخ", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("نسخ احتياطي", fontSize = 12.sp)
+            }
+            Button(
+                onClick = { restoreLauncher.launch(arrayOf("application/zip")) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+            ) {
+                Icon(Icons.Default.CloudDownload, contentDescription = "استعادة", modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("استعادة", fontSize = 12.sp)
+            }
+        }
 
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = "المحلات والحسابات المسجلة حالياً:",
             fontWeight = FontWeight.Bold,
@@ -880,6 +1019,13 @@ fun AccountsSettingsView(
                 viewModel.addAccount(name)
                 showAddAccountDialog = false
             }
+        )
+    }
+
+    if (showChangePasswordDialog) {
+        ChangePasswordDialog(
+            prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE),
+            onDismiss = { showChangePasswordDialog = false }
         )
     }
 }
@@ -1431,4 +1577,217 @@ fun AddAccountDialog(
             }
         }
     }
+}
+
+@Composable
+fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> Unit) {
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                        MaterialTheme.colorScheme.background
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(16.dp, shape = RoundedCornerShape(24.dp)),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Modern 3D Image Banner
+                    Image(
+                        painter = painterResource(id = R.drawable.img_login_banner_1783265103828),
+                        contentDescription = "شعار الدخول",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "دفتر الحسابات الذكي",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    Text(
+                        text = "سجل مبيعاتك ومشترياتك بكل سهولة وأمان",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { 
+                            password = it
+                            errorMessage = ""
+                        },
+                        label = { Text("كلمة المرور") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = errorMessage.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    if (errorMessage.isNotEmpty()) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .align(Alignment.Start)
+                                .padding(top = 4.dp, start = 8.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+                    
+                    Button(
+                        onClick = {
+                            if (password == savedPassword) {
+                                onLoginSuccess()
+                            } else {
+                                errorMessage = "كلمة المرور غير صحيحة"
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Text("تسجيل الدخول", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            
+            Text(
+                text = "كلمة المرور الافتراضية هي 12345",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun ChangePasswordDialog(prefs: android.content.SharedPreferences, onDismiss: () -> Unit) {
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تغيير كلمة المرور") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("كلمة المرور الحالية") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("كلمة المرور الجديدة") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("تأكيد كلمة المرور") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true
+                )
+                if (errorMessage.isNotEmpty()) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (currentPassword != savedPassword) {
+                        errorMessage = "كلمة المرور الحالية غير صحيحة"
+                    } else if (newPassword.isEmpty()) {
+                        errorMessage = "يرجى إدخال كلمة مرور جديدة"
+                    } else if (newPassword != confirmPassword) {
+                        errorMessage = "كلمة المرور الجديدة غير متطابقة"
+                    } else {
+                        prefs.edit().putString("login_password", newPassword).apply()
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text("حفظ")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("إلغاء")
+            }
+        }
+    )
 }

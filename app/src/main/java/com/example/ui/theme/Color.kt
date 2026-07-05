@@ -2,45 +2,31 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Brand Colors (Modern Indigo & Emerald)
-val PrimaryIndigo = Color(0xFF4F46E5)
-val PrimaryIndigoDark = Color(0xFF3730A3)
-val PrimaryIndigoLight = Color(0xFFE0E7FF)
+// Primary Brand Colors (Shades of Blue)
+val PrimaryBlue = Color(0xFF1976D2)
+val PrimaryBlueDark = Color(0xFF0D47A1)
+val PrimaryBlueLight = Color(0xFFE3F2FD)
 
-val AccentEmerald = Color(0xFF10B981)
-val AccentEmeraldDark = Color(0xFF047857)
-val AccentEmeraldLight = Color(0xFFD1FAE5)
+val SecondaryBlue = Color(0xFF03A9F4)
+val SecondaryBlueDark = Color(0xFF0288D1)
+val SecondaryBlueLight = Color(0xFFE1F5FE)
 
-val AccentRose = Color(0xFFF43F5E)
-val AccentRoseLight = Color(0xFFFFE4E6)
+val TertiaryBlue = Color(0xFF3F51B5)
+val TertiaryBlueLight = Color(0xFFE8EAF6)
 
-// Neutrals
-val BackgroundLight = Color(0xFFF8FAFC)
+// Neutrals (Cool Gray / Blueish)
+val BackgroundLight = Color(0xFFF4F8FB)
 val SurfaceLight = Color(0xFFFFFFFF)
-val TextPrimaryLight = Color(0xFF0F172A)
-val TextSecondaryLight = Color(0xFF475569)
-val OutlineLight = Color(0xFFCBD5E1)
+val TextPrimaryLight = Color(0xFF0D1B2A)
+val TextSecondaryLight = Color(0xFF415A77)
+val OutlineLight = Color(0xFFB0C4DE)
 
-val BackgroundDark = Color(0xFF0F172A)
-val SurfaceDark = Color(0xFF1E293B)
-val TextPrimaryDark = Color(0xFFF8FAFC)
-val TextSecondaryDark = Color(0xFF94A3B8)
-val OutlineDark = Color(0xFF334155)
+val BackgroundDark = Color(0xFF0B132B)
+val SurfaceDark = Color(0xFF1C2541)
+val TextPrimaryDark = Color(0xFFE0E1DD)
+val TextSecondaryDark = Color(0xFFA1AEC4)
+val OutlineDark = Color(0xFF3A506B)
 
-// Aliased for Theme compatibility (if existing ones are used)
-val Purple80 = PrimaryIndigoLight
-val PurpleGrey80 = Color(0xFFE2E8F0)
-val Pink80 = AccentRoseLight
-
-val Purple40 = PrimaryIndigo
-val PurpleGrey40 = TextSecondaryLight
-val Pink40 = AccentRose
-
-val WarmPeachBg = BackgroundLight
-val SoftLavender = PrimaryIndigoLight
-val DeepCharcoal = TextPrimaryLight
-val DarkPurpleText = PrimaryIndigoDark
-val SurfaceVariantLight = Color(0xFFF1F5F9)
-val SecondaryContainerLight = PrimaryIndigoLight
+val SurfaceVariantLight = Color(0xFFE9F1F7)
+val SecondaryContainerLight = SecondaryBlueLight
 val OutlineColor = OutlineLight
-

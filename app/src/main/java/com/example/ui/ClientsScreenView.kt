@@ -461,10 +461,15 @@ fun ClientDetailsView(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = operationAmount,
-                        onValueChange = { operationAmount = it },
+                        onValueChange = { 
+                            if (it.all { char -> char.isDigit() || char == '.' }) {
+                                operationAmount = it
+                            }
+                        },
                         label = { Text("المبلغ") },
                         modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        visualTransformation = NumberCommaTransformation()
                     )
                     OutlinedTextField(
                         value = operationTitle,

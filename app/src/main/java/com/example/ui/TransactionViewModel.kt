@@ -9,6 +9,7 @@ import com.example.data.IncomeType
 import com.example.data.ExpenseType
 import com.example.data.Client
 import com.example.data.ClientOperation
+import com.example.data.ProfitDeduction
 import com.example.data.TransactionRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -45,6 +46,16 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     )
 
     // Load transactions for the currently active account
+
+    val allProfitDeductions: StateFlow<List<ProfitDeduction>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getProfitDeductionsForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
     val allTransactions: StateFlow<List<Transaction>> = activeAccountId
         .flatMapLatest { id ->
             if (id != null) repository.getTransactionsForAccount(id) else flowOf(emptyList())
@@ -353,6 +364,39 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
             repository.deleteClientOperation(operation)
         }
     }
+
+
+    // Profit Deduction operations
+    fun addProfitDeduction(accountId: Long, amount: Double, title: String) {
+        viewModelScope.launch {
+            repository.insertProfitDeduction(
+                ProfitDeduction(
+                    accountId = accountId,
+                    amount = amount,
+                    title = title,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun updateProfitDeduction(deduction: ProfitDeduction, newAmount: Double, newTitle: String) {
+        viewModelScope.launch {
+            repository.updateProfitDeduction(
+                deduction.copy(
+                    amount = newAmount,
+                    title = newTitle
+                )
+            )
+        }
+    }
+
+    fun deleteProfitDeduction(deduction: ProfitDeduction) {
+        viewModelScope.launch {
+            repository.deleteProfitDeduction(deduction)
+        }
+    }
+
 }
 
 class TransactionViewModelFactory(private val repository: TransactionRepository) : ViewModelProvider.Factory {

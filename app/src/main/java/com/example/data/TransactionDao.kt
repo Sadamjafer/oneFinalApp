@@ -103,4 +103,16 @@ interface TransactionDao {
 
     @Delete
     suspend fun deleteClientOperation(operation: ClientOperation)
+    // Profit deductions operations
+    @Query("SELECT * FROM profit_deductions WHERE accountId = :accountId ORDER BY timestamp DESC")
+    fun getProfitDeductionsByAccount(accountId: Long): Flow<List<ProfitDeduction>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProfitDeduction(deduction: ProfitDeduction): Long
+
+    @Update
+    suspend fun updateProfitDeduction(deduction: ProfitDeduction)
+
+    @Delete
+    suspend fun deleteProfitDeduction(deduction: ProfitDeduction)
 }
