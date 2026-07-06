@@ -99,6 +99,16 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
             initialValue = emptyList()
         )
 
+    val allClientOperations: StateFlow<List<ClientOperation>> = activeAccountId
+        .flatMapLatest { id ->
+            if (id != null) repository.getClientOperationsForAccount(id) else flowOf(emptyList())
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val totalIncome: StateFlow<Double> = activeAccountId
         .flatMapLatest { id ->
             if (id != null) repository.getTotalIncomeForAccount(id) else flowOf(null)

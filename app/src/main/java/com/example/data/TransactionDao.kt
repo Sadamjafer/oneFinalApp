@@ -95,6 +95,9 @@ interface TransactionDao {
     @Query("SELECT * FROM client_operations WHERE clientId = :clientId ORDER BY timestamp DESC")
     fun getOperationsByClient(clientId: Long): Flow<List<ClientOperation>>
 
+    @Query("SELECT * FROM client_operations WHERE clientId IN (SELECT id FROM clients WHERE accountId = :accountId)")
+    fun getClientOperationsForAccount(accountId: Long): Flow<List<ClientOperation>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertClientOperation(operation: ClientOperation): Long
 

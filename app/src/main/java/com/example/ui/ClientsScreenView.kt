@@ -31,6 +31,7 @@ import java.text.DecimalFormat
 fun ClientsScreenView(viewModel: TransactionViewModel) {
     val clients by viewModel.clients.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
+    val allClientOperations by viewModel.allClientOperations.collectAsState()
     val expenseTypes by viewModel.expenseTypes.collectAsState()
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
 
@@ -78,8 +79,27 @@ fun ClientsScreenView(viewModel: TransactionViewModel) {
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(clients) { client ->
+                            val clientTransactions = remember(allTransactions, client) {
+                                allTransactions.filter { it.type == "EXPENSE" && it.category == client.linkedExpenseCategory }
+                            }
+                            val totalExpense = remember(clientTransactions) {
+                                clientTransactions.sumOf { it.amount }
+                            }
+                            val clientOps = remember(allClientOperations, client) {
+                                allClientOperations.filter { it.clientId == client.id }
+                            }
+                            val totalPayment = remember(clientOps) {
+                                clientOps.filter { it.type == "PAYMENT" }.sumOf { it.amount }
+                            }
+                            val totalDebt = remember(clientOps) {
+                                clientOps.filter { it.type == "DEBT" }.sumOf { it.amount }
+                            }
+                            val cumulativeBalance = totalExpense + totalDebt - totalPayment
+
                             ClientCard(
                                 client = client,
+                                cumulativeBalance = cumulativeBalance,
+                                decimalFormat = decimalFormat,
                                 onClick = { selectedClient = client }
                             )
                         }
@@ -165,7 +185,12 @@ fun ClientsScreenView(viewModel: TransactionViewModel) {
 }
 
 @Composable
-fun ClientCard(client: Client, onClick: () -> Unit) {
+fun ClientCard(
+    client: Client,
+    cumulativeBalance: Double,
+    decimalFormat: DecimalFormat,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -195,7 +220,9 @@ fun ClientCard(client: Client, onClick: () -> Unit) {
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = client.name,
                     fontSize = 18.sp,
@@ -206,6 +233,33 @@ fun ClientCard(client: Client, onClick: () -> Unit) {
                     text = "النوع: ${client.linkedExpenseCategory}",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = "الرصيد التراكمي",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val absBalance = kotlin.math.abs(cumulativeBalance)
+                val balanceText = when {
+                    cumulativeBalance > 0 -> "${decimalFormat.format(absBalance)} (عليه)"
+                    cumulativeBalance < 0 -> "${decimalFormat.format(absBalance)} (له)"
+                    else -> "خالص"
+                }
+                val balanceColor = when {
+                    cumulativeBalance > 0 -> MaterialTheme.colorScheme.error
+                    cumulativeBalance < 0 -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Text(
+                    text = balanceText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = balanceColor
                 )
             }
         }
@@ -368,24 +422,73 @@ fun ClientDetailsView(
                     .weight(1f),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(12.dp),
+                            .height(IntrinsicSize.Min)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("التاريخ", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                        Text("البيان", modifier = Modifier.weight(1.5f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                        Text("مديونية", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-                        Text("سداد", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-                        Text("الرصيد", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.End, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            text = "التاريخ",
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Text(
+                            text = "البيان",
+                            modifier = Modifier
+                                .weight(1.5f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Text(
+                            text = "مديونية",
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Text(
+                            text = "سداد",
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Text(
+                            text = "الرصيد",
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
                     }
                     
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth()
@@ -396,6 +499,7 @@ fun ClientDetailsView(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .height(IntrinsicSize.Min)
                                     .pointerInput(Unit) {
                                         detectTapGestures(
                                             onLongPress = {
@@ -403,48 +507,63 @@ fun ClientDetailsView(
                                                 showEditDeleteDialog = true
                                             }
                                         )
-                                    }
-                                    .padding(12.dp),
+                                    },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = sdf.format(java.util.Date(op.timestamp)),
-                                    modifier = Modifier.weight(1.2f),
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
                                 )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                                 Text(
                                     text = op.title,
-                                    modifier = Modifier.weight(1.5f),
+                                    modifier = Modifier
+                                        .weight(1.5f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Start
                                 )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                                 Text(
                                     text = if (isDebt) decimalFormat.format(op.amount) else "-",
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isDebt) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center
                                 )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                                 Text(
                                     text = if (!isDebt) decimalFormat.format(op.amount) else "-",
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (!isDebt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center
                                 )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                                 Text(
                                     text = decimalFormat.format(balance),
-                                    modifier = Modifier.weight(1.2f),
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.End
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
                         }
                     }
                 }

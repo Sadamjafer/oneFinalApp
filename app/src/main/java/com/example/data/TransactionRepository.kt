@@ -111,6 +111,10 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
         return transactionDao.getOperationsByClient(clientId)
     }
 
+    fun getClientOperationsForAccount(accountId: Long): Flow<List<ClientOperation>> {
+        return transactionDao.getClientOperationsForAccount(accountId)
+    }
+
     suspend fun insertClientOperation(operation: ClientOperation): Long {
         return transactionDao.insertClientOperation(operation)
     }

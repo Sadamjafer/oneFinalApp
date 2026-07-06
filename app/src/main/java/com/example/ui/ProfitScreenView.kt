@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -145,24 +146,58 @@ fun ProfitScreenView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("التاريخ", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text("البيان", modifier = Modifier.weight(1.5f), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                    Text("المبلغ", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-                    Text("الرصيد", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 12.sp, textAlign = TextAlign.End, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        text = "التاريخ",
+                        modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Text(
+                        text = "البيان",
+                        modifier = Modifier.weight(1.5f).padding(vertical = 12.dp, horizontal = 4.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Text(
+                        text = "المبلغ",
+                        modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Text(
+                        text = "الرصيد",
+                        modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
                 }
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
                 
-                LazyColumn {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                     items(entriesWithBalance) { (entry, balance) ->
                         val displaySdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
                         val displayDate = displaySdf.format(Date(entry.timestamp))
@@ -172,54 +207,56 @@ fun ProfitScreenView(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(IntrinsicSize.Min)
                                 .clickable {
                                     if (entry is DeductionEntry) {
                                         deductionToEdit = entry.deduction
                                         showEditDeleteDialog = true
                                     }
                                 }
-                                .padding(vertical = 8.dp)
                                 .background(
-                                    if (isDeduction) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f) 
-                                    else Color.Transparent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(if (isDeduction) 8.dp else 0.dp),
+                                    if (isDeduction) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f) 
+                                    else Color.Transparent
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = displayDate.replace(" 00:00", ""),
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (entry is DailyProfitEntry) "صافي ربح ${entry.dateString}" else (entry as DeductionEntry).deduction.title,
-                                modifier = Modifier.weight(1.5f),
-                                fontSize = 12.sp,
-                                fontWeight = if (isDeduction) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isDeduction) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = decimalFormat.format(entry.amount),
-                                modifier = Modifier.weight(1f),
-                                fontSize = 12.sp,
-                                color = if (entry.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
                             )
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                            Text(
+                                text = if (entry is DailyProfitEntry) "صافي ربح ${entry.dateString}" else (entry as DeductionEntry).deduction.title,
+                                modifier = Modifier.weight(1.5f).padding(vertical = 10.dp, horizontal = 4.dp),
+                                fontSize = 11.sp,
+                                fontWeight = if (isDeduction) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (isDeduction) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Start
+                            )
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                            Text(
+                                text = decimalFormat.format(entry.amount),
+                                modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
+                                fontSize = 11.sp,
+                                color = if (entry.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                             Text(
                                 text = decimalFormat.format(balance),
-                                modifier = Modifier.weight(1f),
-                                fontSize = 12.sp,
+                                modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (balance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.End
+                                textAlign = TextAlign.Center
                             )
                         }
-                        if (!isDeduction) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
                     }
                 }
             }

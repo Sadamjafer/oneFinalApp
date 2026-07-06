@@ -362,9 +362,7 @@ fun ReportTable(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(1.dp)
-            .background(Color.LightGray) // simple border effect
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
             .padding(1.dp)
             .background(MaterialTheme.colorScheme.surface)
     ) {
@@ -378,55 +376,87 @@ fun ReportTable(
         ) {
             Text(title, fontWeight = FontWeight.Bold, color = headerColor, fontSize = 16.sp)
         }
+        
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
         // Headers
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(12.dp)
+                .height(IntrinsicSize.Min)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("البيان", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-            Text("المبلغ", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text(
+                text = "البيان",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+            Text(
+                text = "المبلغ",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
         
-        Divider(color = Color.LightGray)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
         // Rows
         rows.forEach { row ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = row.statement, 
-                    modifier = Modifier.weight(1f),
-                    fontSize = 14.sp
+                    modifier = Modifier.weight(1f).padding(10.dp),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                 Text(
                     text = "${decimalFormat.format(row.amount)} ج.س", 
-                    modifier = Modifier.weight(1f),
-                    fontSize = 14.sp,
-                    color = headerColor
+                    modifier = Modifier.weight(1f).padding(10.dp),
+                    fontSize = 13.sp,
+                    color = headerColor,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    fontWeight = FontWeight.Medium
                 )
             }
-            Divider(color = Color.LightGray)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
         }
 
         // Footer
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(headerColor.copy(alpha = 0.05f))
-                .padding(12.dp)
+                .height(IntrinsicSize.Min)
+                .background(headerColor.copy(alpha = 0.05f)),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("الإجمالي", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text(
+                text = "الإجمالي",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
             Text(
                 text = "${decimalFormat.format(totalAmount)} ج.س",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(10.dp),
                 fontWeight = FontWeight.Bold,
-                color = headerColor
+                fontSize = 13.sp,
+                color = headerColor,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
@@ -443,7 +473,7 @@ fun SummaryTable(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.LightGray)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
             .padding(1.dp)
             .background(MaterialTheme.colorScheme.surface)
     ) {
@@ -457,52 +487,84 @@ fun SummaryTable(
         ) {
             Text("جدول الخلاصة", fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5), fontSize = 16.sp)
         }
+        
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
         // Income Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("إجمالي الإيرادات", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+            Text(
+                text = "إجمالي الإيرادات",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
             Text(
                 text = "${decimalFormat.format(totalIncome)} ج.س",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(10.dp),
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
-        Divider(color = Color.LightGray)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
         // Expense Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("إجمالي المصروفات", modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
+            Text(
+                text = "إجمالي المصروفات",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
             Text(
                 text = "${decimalFormat.format(totalExpense)} ج.س",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(10.dp),
                 color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
-        Divider(color = Color.LightGray)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
         // Net Balance Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (netBalance >= 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer)
-                .padding(12.dp)
+                .height(IntrinsicSize.Min)
+                .background(if (netBalance >= 0) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("صافي الربح", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+            Text(
+                text = "صافي الربح",
+                modifier = Modifier.weight(1f).padding(10.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
             Text(
                 text = "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).padding(10.dp),
                 color = if (netBalance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
     }
