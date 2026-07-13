@@ -452,7 +452,7 @@ fun IncomeScreenView(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                val todayDate = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date()) }
+                val todayDate = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date()) }
                 var dateStr by remember { mutableStateOf(todayDate) }
                 var bagsStr by remember { mutableStateOf("") }
                 var amountStr by remember { mutableStateOf("") }
@@ -462,7 +462,15 @@ fun IncomeScreenView(
                 var showAmountError by remember { mutableStateOf(false) }
 
                 var showDatePicker by remember { mutableStateOf(false) }
-                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+                val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
+                val initialTime = remember(todayDate) {
+                    try {
+                        utcSdf.parse(todayDate)?.time
+                    } catch (e: Exception) {
+                        null
+                    } ?: System.currentTimeMillis()
+                }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
 
                 if (showDatePicker) {
                     DatePickerDialog(
@@ -470,7 +478,7 @@ fun IncomeScreenView(
                         confirmButton = {
                             TextButton(onClick = {
                                 datePickerState.selectedDateMillis?.let {
-                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                    dateStr = utcSdf.format(Date(it))
                                 }
                                 showDatePicker = false
                             }) {
@@ -663,12 +671,13 @@ fun IncomeScreenView(
                 var showAmountError by remember { mutableStateOf(false) }
 
                 var showDatePicker by remember { mutableStateOf(false) }
+                val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
                 val initialTime = remember(incomeType) {
                     try {
-                        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).parse(incomeType.name)?.time ?: System.currentTimeMillis()
+                        utcSdf.parse(incomeType.name)?.time
                     } catch (e: Exception) {
-                        System.currentTimeMillis()
-                    }
+                        null
+                    } ?: System.currentTimeMillis()
                 }
                 val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
 
@@ -678,7 +687,7 @@ fun IncomeScreenView(
                         confirmButton = {
                             TextButton(onClick = {
                                 datePickerState.selectedDateMillis?.let {
-                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                    dateStr = utcSdf.format(Date(it))
                                 }
                                 showDatePicker = false
                             }) {

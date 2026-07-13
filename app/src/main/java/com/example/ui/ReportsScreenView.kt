@@ -48,7 +48,8 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
     var selectedYear by remember { mutableStateOf(currentCalendar.get(Calendar.YEAR)) }
     
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
-    val sdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()) }
+    val sdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH) }
+    val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
 
     if (showStartDatePicker) {
         DatePickerDialog(
@@ -56,7 +57,7 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
             confirmButton = {
                 TextButton(onClick = {
                     startDatePickerState.selectedDateMillis?.let {
-                        startDateStr = sdf.format(Date(it))
+                        startDateStr = utcSdf.format(Date(it))
                     }
                     showStartDatePicker = false
                 }) {
@@ -79,7 +80,7 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
             confirmButton = {
                 TextButton(onClick = {
                     endDatePickerState.selectedDateMillis?.let {
-                        endDateStr = sdf.format(Date(it))
+                        endDateStr = utcSdf.format(Date(it))
                     }
                     showEndDatePicker = false
                 }) {
@@ -180,7 +181,7 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
                 }
                 2 -> { // Custom
                     try {
-                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH)
                         val start = if (startDateStr.isNotBlank()) sdf.parse(startDateStr)?.time ?: 0L else 0L
                         val end = if (endDateStr.isNotBlank()) {
                             val d = sdf.parse(endDateStr)

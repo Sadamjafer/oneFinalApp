@@ -301,7 +301,7 @@ fun ExpenseScreenView(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "تاريخ الإنشاء: ${SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(expenseType.timestamp))}",
+                                        text = "تاريخ الإنشاء: ${SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date(expenseType.timestamp))}",
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     )
@@ -406,7 +406,7 @@ fun ExpenseScreenView(
                                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                                     ) {
                                                         Text(
-                                                            text = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(transaction.timestamp)),
+                                                            text = SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date(transaction.timestamp)),
                                                             fontSize = 11.sp,
                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                             fontWeight = FontWeight.Medium
@@ -813,7 +813,7 @@ fun ExpenseScreenView(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                val todayDate = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date()) }
+                val todayDate = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date()) }
                 var dateStr by remember { mutableStateOf(todayDate) }
                 var amountStr by remember { mutableStateOf("") }
                 var noteStr by remember { mutableStateOf("") }
@@ -821,7 +821,15 @@ fun ExpenseScreenView(
                 var showError by remember { mutableStateOf(false) }
 
                 var showDatePicker by remember { mutableStateOf(false) }
-                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+                val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
+                val initialTime = remember(todayDate) {
+                    try {
+                        utcSdf.parse(todayDate)?.time
+                    } catch (e: Exception) {
+                        null
+                    } ?: System.currentTimeMillis()
+                }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
 
                 if (showDatePicker) {
                     DatePickerDialog(
@@ -829,7 +837,7 @@ fun ExpenseScreenView(
                         confirmButton = {
                             TextButton(onClick = {
                                 datePickerState.selectedDateMillis?.let {
-                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                    dateStr = utcSdf.format(Date(it))
                                 }
                                 showDatePicker = false
                             }) {
@@ -965,7 +973,7 @@ fun ExpenseScreenView(
                                     if (!isAmountValid) showError = true
 
                                     if (isDateValid && isAmountValid) {
-                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH)
                                         val dateObj = try { sdf.parse(dateStr.trim()) } catch(e: Exception) { null }
                                         val timestampValue = dateObj?.time ?: System.currentTimeMillis()
 
@@ -1009,7 +1017,7 @@ fun ExpenseScreenView(
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 val initialDate = remember(transaction) {
-                    SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(transaction.timestamp))
+                    SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date(transaction.timestamp))
                 }
                 var dateStr by remember { mutableStateOf(initialDate) }
                 var amountStr by remember { mutableStateOf(transaction.amount.toString()) }
@@ -1018,7 +1026,14 @@ fun ExpenseScreenView(
                 var showError by remember { mutableStateOf(false) }
 
                 var showDatePicker by remember { mutableStateOf(false) }
-                val initialTime = remember(transaction) { transaction.timestamp }
+                val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
+                val initialTime = remember(transaction) {
+                    try {
+                        utcSdf.parse(initialDate)?.time
+                    } catch (e: Exception) {
+                        null
+                    } ?: transaction.timestamp
+                }
                 val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
 
                 if (showDatePicker) {
@@ -1027,7 +1042,7 @@ fun ExpenseScreenView(
                         confirmButton = {
                             TextButton(onClick = {
                                 datePickerState.selectedDateMillis?.let {
-                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                    dateStr = utcSdf.format(Date(it))
                                 }
                                 showDatePicker = false
                             }) {
@@ -1159,7 +1174,7 @@ fun ExpenseScreenView(
                                     if (!isAmountValid) showError = true
 
                                     if (isDateValid && isAmountValid) {
-                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+                                        val sdf = SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH)
                                         val dateObj = try { sdf.parse(dateStr.trim()) } catch(e: Exception) { null }
                                         val timestampValue = dateObj?.time ?: transaction.timestamp
 
