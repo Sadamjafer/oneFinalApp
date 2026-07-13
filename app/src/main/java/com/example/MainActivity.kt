@@ -61,6 +61,9 @@ import com.example.ui.IncomeScreenView
 import com.example.ui.ExpenseScreenView
 import com.example.ui.ReportsScreenView
 import com.example.ui.ClientsScreenView
+import com.example.ui.SectionsScreenView
+import com.example.ui.CrashRecoveryScreen
+import com.example.util.ErrorLogger
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -103,20 +106,36 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        var isAuthenticated by remember { mutableStateOf(false) }
-                        if (!isAuthenticated) {
-                            LoginScreen(
-                                prefs = prefs,
-                                onLoginSuccess = { isAuthenticated = true }
+                        var crashOccurred by remember { mutableStateOf(intent.getBooleanExtra("crash_occurred", false)) }
+                        val errorMessage = remember { intent.getStringExtra("error_message") ?: "" }
+                        val stackTrace = remember { intent.getStringExtra("stack_trace") ?: "" }
+
+                        if (crashOccurred) {
+                            CrashRecoveryScreen(
+                                context = context,
+                                errorMessage = errorMessage,
+                                stackTrace = stackTrace,
+                                onDismiss = {
+                                    intent.removeExtra("crash_occurred")
+                                    crashOccurred = false
+                                }
                             )
                         } else {
-                            LedgerDashboard(
-                                viewModel = viewModel,
-                                isDarkMode = isDarkMode,
-                                onThemeChange = onThemeChange,
-                                fontScale = fontScale,
-                                onFontScaleChange = onFontScaleChange
-                            )
+                            var isAuthenticated by remember { mutableStateOf(false) }
+                            if (!isAuthenticated) {
+                                LoginScreen(
+                                    prefs = prefs,
+                                    onLoginSuccess = { isAuthenticated = true }
+                                )
+                            } else {
+                                LedgerDashboard(
+                                    viewModel = viewModel,
+                                    isDarkMode = isDarkMode,
+                                    onThemeChange = onThemeChange,
+                                    fontScale = fontScale,
+                                    onFontScaleChange = onFontScaleChange
+                                )
+                            }
                         }
                     }
                 }
@@ -155,26 +174,18 @@ fun LedgerDashboard(
 
     Scaffold(
         bottomBar = {
-            val scrollState = rememberScrollState()
-            Row(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).shadow(8.dp).horizontalScroll(scrollState)) {
-                NavigationBar(
-                    modifier = Modifier.width(600.dp),
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    tonalElevation = 0.dp
-                ) {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 8.dp
+            ) {
                 val tabs = listOf(
                     Triple("HOME", "الرئيسية", Icons.Filled.Home),
-                    Triple("INCOME_SCREEN", "الدخل", Icons.Filled.TrendingUp),
-                    Triple("EXPENSE_SCREEN", "المنصرف", Icons.Filled.TrendingDown),
-                    Triple("CLIENTS_SCREEN", "العملاء", Icons.Filled.Person),
-                    Triple("PROFIT_SCREEN", "الارباح", Icons.Filled.AttachMoney),
-                    Triple("REPORTS_SCREEN", "التقارير", Icons.Filled.PieChart),
-                    Triple("SETTINGS", "الإعدادات", Icons.Filled.Settings)
+                    Triple("SECTIONS", "الاقسام", Icons.Filled.GridView)
                 )
 
                 tabs.forEach { (tabId, tabName, tabIcon) ->
-                    val isSelected = selectedTab == tabId
+                    val isSelected = selectedTab == tabId || (tabId == "SECTIONS" && selectedTab != "HOME")
                     NavigationBarItem(
                         selected = isSelected,
                         onClick = { selectedTab = tabId },
@@ -187,7 +198,7 @@ fun LedgerDashboard(
                         label = {
                             Text(
                                 text = tabName,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         },
@@ -200,7 +211,6 @@ fun LedgerDashboard(
                         )
                     )
                 }
-            }
             }
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -507,28 +517,41 @@ fun LedgerDashboard(
                 }
             }
             }
+            "SECTIONS" -> {
+                SectionsScreenView(
+                    onSectionClick = { sectionId ->
+                        selectedTab = sectionId
+                    }
+                )
+            }
             "INCOME_SCREEN" -> {
                 IncomeScreenView(
                     viewModel = viewModel,
                     innerPadding = innerPadding,
-                    onNavigateBack = { selectedTab = "HOME" }
+                    onNavigateBack = { selectedTab = "SECTIONS" }
                 )
             }
             "EXPENSE_SCREEN" -> {
                 ExpenseScreenView(
                     viewModel = viewModel,
                     innerPadding = innerPadding,
-                    onNavigateBack = { selectedTab = "HOME" }
+                    onNavigateBack = { selectedTab = "SECTIONS" }
                 )
             }
             "REPORTS_SCREEN" -> {
                 Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
-                    ReportsScreenView(viewModel = viewModel)
+                    ReportsScreenView(
+                        viewModel = viewModel,
+                        onNavigateBack = { selectedTab = "SECTIONS" }
+                    )
                 }
             }
             "CLIENTS_SCREEN" -> {
                 Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
-                    ClientsScreenView(viewModel = viewModel)
+                    ClientsScreenView(
+                        viewModel = viewModel,
+                        onNavigateBack = { selectedTab = "SECTIONS" }
+                    )
                 }
             }
             "PROFIT_SCREEN" -> {
@@ -536,7 +559,8 @@ fun LedgerDashboard(
                     com.example.ui.ProfitScreenView(
                         viewModel = viewModel,
                         account = currentAccount!!,
-                        innerPadding = innerPadding
+                        innerPadding = innerPadding,
+                        onNavigateBack = { selectedTab = "SECTIONS" }
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -552,7 +576,7 @@ fun LedgerDashboard(
                     onThemeChange = onThemeChange,
                     fontScale = fontScale,
                     onFontScaleChange = onFontScaleChange,
-                    onNavigateBack = { selectedTab = "HOME" }
+                    onNavigateBack = { selectedTab = "SECTIONS" }
                 )
             }
         }
@@ -575,6 +599,8 @@ fun AccountsSettingsView(
     var accountToEdit by remember { mutableStateOf<Account?>(null) }
     var accountToDelete by remember { mutableStateOf<Account?>(null) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
+    var showLogsDialog by remember { mutableStateOf(false) }
+    var currentLogsText by remember { mutableStateOf("") }
     
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -851,6 +877,142 @@ fun AccountsSettingsView(
                 Icon(Icons.Default.CloudDownload, contentDescription = "استعادة", modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("استعادة", fontSize = 12.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Error Logs and Self-Healing Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .clickable {
+                    currentLogsText = ErrorLogger.getLogs(context)
+                    showLogsDialog = true
+                }
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.08f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BugReport,
+                    contentDescription = "سجل الأخطاء والتصحيح الذاتي",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "سجل الأخطاء الفنية والتصحيح الذاتي",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Text(
+                        text = "استعراض الأخطاء الفنية المحفوظة وتفاصيل الحماية والوقاية",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "تفاصيل",
+                    tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        if (showLogsDialog) {
+            Dialog(onDismissRequest = { showLogsDialog = false }) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .heightIn(max = 500.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "سجل الأخطاء الفنية والتصحيح الذاتي",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
+                                .padding(8.dp)
+                        ) {
+                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                item {
+                                    Text(
+                                        text = currentLogsText,
+                                        fontSize = 10.sp,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("Crash Logs", currentLogsText)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "تم نسخ السجل للذاكرة", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("نسخ", fontSize = 11.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    ErrorLogger.clearLogs(context)
+                                    currentLogsText = ErrorLogger.getLogs(context)
+                                    Toast.makeText(context, "تم مسح السجل", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("مسح", fontSize = 11.sp, color = MaterialTheme.colorScheme.onError)
+                            }
+
+                            TextButton(
+                                onClick = { showLogsDialog = false },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("إغلاق", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
 

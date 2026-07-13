@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.example.data.Transaction
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -26,7 +28,7 @@ data class ReportRowData(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportsScreenView(viewModel: TransactionViewModel) {
+fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Unit)? = null) {
     val allTransactions by viewModel.allTransactions.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     
@@ -99,6 +101,34 @@ fun ReportsScreenView(viewModel: TransactionViewModel) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Top Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (onNavigateBack != null) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "رجوع",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = "التقارير والإحصائيات",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+
         TabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,

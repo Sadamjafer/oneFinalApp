@@ -1,5 +1,5 @@
 {
-  "name": "Simple Ledger",
+  "name": "دفتر الحسابات",
   "description": "A clean, simple accounting and expense ledger app to track daily income and expenses.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

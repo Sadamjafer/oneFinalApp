@@ -49,6 +49,12 @@ fun IncomeScreenView(
     var showEditTypeDialog by remember { mutableStateOf<IncomeType?>(null) }
     var showDeleteTypeDialog by remember { mutableStateOf<IncomeType?>(null) }
 
+    var showConfirmEditTypeDialog by remember { mutableStateOf<IncomeType?>(null) }
+    var pendingNewName by remember { mutableStateOf("") }
+    var pendingConsumedBags by remember { mutableStateOf(0) }
+    var pendingNewAmount by remember { mutableStateOf(0.0) }
+    var pendingNewNotes by remember { mutableStateOf("") }
+
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
 
     Column(
@@ -455,6 +461,32 @@ fun IncomeScreenView(
                 var showDateError by remember { mutableStateOf(false) }
                 var showAmountError by remember { mutableStateOf(false) }
 
+                var showDatePicker by remember { mutableStateOf(false) }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+
+                if (showDatePicker) {
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let {
+                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                }
+                                showDatePicker = false
+                            }) {
+                                Text("موافق")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text("إلغاء")
+                            }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(
                         modifier = Modifier
@@ -473,20 +505,27 @@ fun IncomeScreenView(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         // 1. Date Field (Defaults to Today)
-                        OutlinedTextField(
-                            value = dateStr,
-                            onValueChange = {
-                                dateStr = it
-                                showDateError = false
-                            },
-                            label = { Text("التاريخ (اسم الإيراد)") },
-                            placeholder = { Text("مثال: 2026/06/24") },
-                            singleLine = true,
-                            isError = showDateError,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = dateStr,
+                                onValueChange = {},
+                                label = { Text("التاريخ (اسم الإيراد)") },
+                                readOnly = true,
+                                isError = showDateError,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                            )
+                            // Transparent clickable overlay to trigger date picker anywhere on the field
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker = true }
+                            )
+                        }
                         if (showDateError) {
                             Text(
                                 text = "الرجاء إدخال تاريخ صحيح غير فارغ",
@@ -623,6 +662,39 @@ fun IncomeScreenView(
                 var showDateError by remember { mutableStateOf(false) }
                 var showAmountError by remember { mutableStateOf(false) }
 
+                var showDatePicker by remember { mutableStateOf(false) }
+                val initialTime = remember(incomeType) {
+                    try {
+                        SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).parse(incomeType.name)?.time ?: System.currentTimeMillis()
+                    } catch (e: Exception) {
+                        System.currentTimeMillis()
+                    }
+                }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
+
+                if (showDatePicker) {
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let {
+                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                }
+                                showDatePicker = false
+                            }) {
+                                Text("موافق")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text("إلغاء")
+                            }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(
                         modifier = Modifier
@@ -641,19 +713,27 @@ fun IncomeScreenView(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         // 1. Date Field
-                        OutlinedTextField(
-                            value = dateStr,
-                            onValueChange = {
-                                dateStr = it
-                                showDateError = false
-                            },
-                            label = { Text("التاريخ (اسم الإيراد)") },
-                            singleLine = true,
-                            isError = showDateError,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = dateStr,
+                                onValueChange = {},
+                                label = { Text("التاريخ (اسم الإيراد)") },
+                                readOnly = true,
+                                isError = showDateError,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                            )
+                            // Transparent clickable overlay to trigger date picker anywhere on the field
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker = true }
+                            )
+                        }
                         if (showDateError) {
                             Text(
                                 text = "الرجاء إدخال تاريخ صحيح غير فارغ",
@@ -742,14 +822,11 @@ fun IncomeScreenView(
                                     if (!isAmountValid) showAmountError = true
 
                                     if (isDateValid && isAmountValid) {
-                                        viewModel.updateIncomeType(
-                                            incomeType = incomeType,
-                                            newName = dateStr.trim(),
-                                            newConsumedBags = bagsValue,
-                                            newAmount = amountValue!!,
-                                            newNotes = notesStr.trim()
-                                        )
-                                        showEditTypeDialog = null
+                                        pendingNewName = dateStr.trim()
+                                        pendingConsumedBags = bagsValue
+                                        pendingNewAmount = amountValue!!
+                                        pendingNewNotes = notesStr.trim()
+                                        showConfirmEditTypeDialog = incomeType
                                     }
                                 },
                                 modifier = Modifier.weight(1.5f),
@@ -850,5 +927,43 @@ fun IncomeScreenView(
                 }
             }
         }
+    }
+
+    if (showConfirmEditTypeDialog != null) {
+        val typeToEdit = showConfirmEditTypeDialog!!
+        AlertDialog(
+            onDismissRequest = { showConfirmEditTypeDialog = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد تعديل الإيراد", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            text = { Text("هل أنت متأكد من حفظ التعديلات على هذا الإيراد اليومي؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateIncomeType(
+                            incomeType = typeToEdit,
+                            newName = pendingNewName,
+                            newConsumedBags = pendingConsumedBags,
+                            newAmount = pendingNewAmount,
+                            newNotes = pendingNewNotes
+                        )
+                        showConfirmEditTypeDialog = null
+                        showEditTypeDialog = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("تأكيد الحفظ")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEditTypeDialog = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 }

@@ -6,13 +6,18 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +53,8 @@ data class DeductionEntry(
 fun ProfitScreenView(
     viewModel: TransactionViewModel,
     account: Account,
-    innerPadding: PaddingValues
+    innerPadding: PaddingValues,
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val transactions by viewModel.allTransactions.collectAsState()
     val profitDeductions by viewModel.allProfitDeductions.collectAsState()
@@ -95,30 +101,51 @@ fun ProfitScreenView(
     var deductionToEdit by remember { mutableStateOf<ProfitDeduction?>(null) }
     var showEditDeleteDialog by remember { mutableStateOf(false) }
 
+    var showConfirmDeleteDeduction by remember { mutableStateOf<ProfitDeduction?>(null) }
+    var showConfirmEditDeduction by remember { mutableStateOf<ProfitDeduction?>(null) }
+    var pendingDeductionAmount by remember { mutableStateOf(0.0) }
+    var pendingDeductionTitle by remember { mutableStateOf("") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(bottom = innerPadding.calculateBottomPadding())
     ) {
         // Header
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "سجل الأرباح والخصومات",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "حركة صافي الربح اليومي والخصومات",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-            )
+            if (onNavigateBack != null) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "رجوع",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "سجل الأرباح والخصومات",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "حركة صافي الربح اليومي والخصومات",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
         }
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
         
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -148,9 +175,13 @@ fun ProfitScreenView(
                 .padding(horizontal = 16.dp),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -166,7 +197,7 @@ fun ProfitScreenView(
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center
                     )
-                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                     Text(
                         text = "البيان",
                         modifier = Modifier.weight(1.5f).padding(vertical = 12.dp, horizontal = 4.dp),
@@ -175,7 +206,7 @@ fun ProfitScreenView(
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center
                     )
-                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                     Text(
                         text = "المبلغ",
                         modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
@@ -184,7 +215,7 @@ fun ProfitScreenView(
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center
                     )
-                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                    Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                     Text(
                         text = "الرصيد",
                         modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 4.dp),
@@ -195,10 +226,10 @@ fun ProfitScreenView(
                     )
                 }
                 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
                 
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
-                    items(entriesWithBalance) { (entry, balance) ->
+                    itemsIndexed(entriesWithBalance) { index, (entry, balance) ->
                         val displaySdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
                         val displayDate = displaySdf.format(Date(entry.timestamp))
                         
@@ -228,7 +259,7 @@ fun ProfitScreenView(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
                             )
-                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                             Text(
                                 text = if (entry is DailyProfitEntry) "صافي ربح ${entry.dateString}" else (entry as DeductionEntry).deduction.title,
                                 modifier = Modifier.weight(1.5f).padding(vertical = 10.dp, horizontal = 4.dp),
@@ -237,7 +268,7 @@ fun ProfitScreenView(
                                 color = if (isDeduction) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Start
                             )
-                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                             Text(
                                 text = decimalFormat.format(entry.amount),
                                 modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
@@ -246,7 +277,7 @@ fun ProfitScreenView(
                                 textAlign = TextAlign.Center,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                             Text(
                                 text = decimalFormat.format(balance),
                                 modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
@@ -256,7 +287,9 @@ fun ProfitScreenView(
                                 textAlign = TextAlign.Center
                             )
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                        if (index < entriesWithBalance.lastIndex) {
+                            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
             }
@@ -296,11 +329,13 @@ fun ProfitScreenView(
                         if (amount != null && amount > 0) {
                             val title = if (deductionTitle.isNotBlank()) deductionTitle else "خصم"
                             if (deductionToEdit != null) {
-                                viewModel.updateProfitDeduction(deductionToEdit!!, amount, title)
+                                pendingDeductionAmount = amount
+                                pendingDeductionTitle = title
+                                showConfirmEditDeduction = deductionToEdit
                             } else {
                                 viewModel.addProfitDeduction(account.id, amount, title)
+                                showDeductionDialog = false
                             }
-                            showDeductionDialog = false
                         }
                     }
                 ) {
@@ -335,12 +370,89 @@ fun ProfitScreenView(
             dismissButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteProfitDeduction(deductionToEdit!!)
+                        showConfirmDeleteDeduction = deductionToEdit
                         showEditDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("حذف")
+                }
+            }
+        )
+    }
+
+    if (showConfirmDeleteDeduction != null) {
+        val deductionToDelete = showConfirmDeleteDeduction!!
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteDeduction = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد حذف الخصم", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            text = { Text("هل أنت متأكد من حذف هذا الخصم بقيمة (${decimalFormat.format(deductionToDelete.amount)} ج.س) والبيان (${deductionToDelete.title})؟\nسيتم حذفه نهائياً وتحديث الأرصدة.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteProfitDeduction(deductionToDelete)
+                        showConfirmDeleteDeduction = null
+                        deductionToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("تأكيد الحذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteDeduction = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showConfirmEditDeduction != null) {
+        val deductionToSave = showConfirmEditDeduction!!
+        AlertDialog(
+            onDismissRequest = { showConfirmEditDeduction = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد تعديل الخصم", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            text = { Text("هل تريد حفظ التعديلات على هذا الخصم؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateProfitDeduction(
+                            deduction = deductionToSave,
+                            newAmount = pendingDeductionAmount,
+                            newTitle = pendingDeductionTitle
+                        )
+                        showConfirmEditDeduction = null
+                        showDeductionDialog = false
+                        deductionToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("تأكيد الحفظ")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEditDeduction = null }) {
+                    Text("إلغاء")
                 }
             }
         )

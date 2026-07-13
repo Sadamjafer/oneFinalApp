@@ -55,6 +55,10 @@ fun ExpenseScreenView(
     var showDeleteTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var showRegisterAmountDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var showEditPaymentDialog by remember { mutableStateOf<Transaction?>(null) }
+    var showConfirmDeleteTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showConfirmEditTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showConfirmEditTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
+    var pendingExpenseTypeNewName by remember { mutableStateOf("") }
 
     val decimalFormat = remember { DecimalFormat("#,##0.##") }
 
@@ -445,7 +449,7 @@ fun ExpenseScreenView(
                                                         modifier = Modifier
                                                             .size(16.dp)
                                                             .clickable {
-                                                                viewModel.deleteTransaction(transaction)
+                                                                showConfirmDeleteTransaction = transaction
                                                             }
                                                     )
                                                 }
@@ -691,8 +695,8 @@ fun ExpenseScreenView(
                             Button(
                                 onClick = {
                                     if (name.isNotBlank()) {
-                                        viewModel.updateExpenseType(expenseType, name.trim())
-                                        showEditTypeDialog = null
+                                        pendingExpenseTypeNewName = name.trim()
+                                        showConfirmEditTypeDialog = expenseType
                                     } else {
                                         showError = true
                                     }
@@ -816,6 +820,32 @@ fun ExpenseScreenView(
                 var showDateError by remember { mutableStateOf(false) }
                 var showError by remember { mutableStateOf(false) }
 
+                var showDatePicker by remember { mutableStateOf(false) }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+
+                if (showDatePicker) {
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let {
+                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                }
+                                showDatePicker = false
+                            }) {
+                                Text("موافق")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text("إلغاء")
+                            }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -839,20 +869,27 @@ fun ExpenseScreenView(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Date Field (Defaults to Today)
-                        OutlinedTextField(
-                            value = dateStr,
-                            onValueChange = {
-                                dateStr = it
-                                showDateError = false
-                            },
-                            label = { Text("تاريخ العملية") },
-                            placeholder = { Text("مثال: 2026/06/24") },
-                            singleLine = true,
-                            isError = showDateError,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = dateStr,
+                                onValueChange = {},
+                                label = { Text("تاريخ العملية") },
+                                readOnly = true,
+                                isError = showDateError,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                            )
+                            // Transparent clickable overlay to trigger date picker anywhere on the field
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker = true }
+                            )
+                        }
                         if (showDateError) {
                             Text(
                                 text = "الرجاء إدخال تاريخ صحيح غير فارغ",
@@ -980,6 +1017,33 @@ fun ExpenseScreenView(
                 var showDateError by remember { mutableStateOf(false) }
                 var showError by remember { mutableStateOf(false) }
 
+                var showDatePicker by remember { mutableStateOf(false) }
+                val initialTime = remember(transaction) { transaction.timestamp }
+                val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialTime)
+
+                if (showDatePicker) {
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let {
+                                    dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date(it))
+                                }
+                                showDatePicker = false
+                            }) {
+                                Text("موافق")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text("إلغاء")
+                            }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                     Column(
                         modifier = Modifier.padding(24.dp),
@@ -1003,20 +1067,27 @@ fun ExpenseScreenView(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Date Field
-                        OutlinedTextField(
-                            value = dateStr,
-                            onValueChange = {
-                                dateStr = it
-                                showDateError = false
-                            },
-                            label = { Text("تاريخ العملية") },
-                            placeholder = { Text("مثال: 2026/06/24") },
-                            singleLine = true,
-                            isError = showDateError,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = dateStr,
+                                onValueChange = {},
+                                label = { Text("تاريخ العملية") },
+                                readOnly = true,
+                                isError = showDateError,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                            )
+                            // Transparent clickable overlay to trigger date picker anywhere on the field
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clickable { showDatePicker = true }
+                            )
+                        }
                         if (showDateError) {
                             Text(
                                 text = "الرجاء إدخال تاريخ صحيح غير فارغ",
@@ -1092,14 +1163,11 @@ fun ExpenseScreenView(
                                         val dateObj = try { sdf.parse(dateStr.trim()) } catch(e: Exception) { null }
                                         val timestampValue = dateObj?.time ?: transaction.timestamp
 
-                                        viewModel.updateTransaction(
-                                            transaction.copy(
-                                                amount = amountValue!!,
-                                                notes = noteStr.trim(),
-                                                timestamp = timestampValue
-                                            )
+                                        showConfirmEditTransaction = transaction.copy(
+                                            amount = amountValue!!,
+                                            notes = noteStr.trim(),
+                                            timestamp = timestampValue
                                         )
-                                        showEditPaymentDialog = null
                                     }
                                 },
                                 modifier = Modifier.weight(1.5f),
@@ -1116,5 +1184,98 @@ fun ExpenseScreenView(
                 }
             }
         }
+    }
+
+    if (showConfirmDeleteTransaction != null) {
+        val txToDelete = showConfirmDeleteTransaction!!
+        AlertDialog(
+            onDismissRequest = { showConfirmDeleteTransaction = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد حذف الدفعة", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            text = { Text("هل أنت متأكد من حذف هذه الدفعة بقيمة (${decimalFormat.format(txToDelete.amount)} ج.س)؟\nسيتم حذفها نهائياً ولا يمكن استرجاعها.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTransaction(txToDelete)
+                        showConfirmDeleteTransaction = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("تأكيد الحذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDeleteTransaction = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showConfirmEditTransaction != null) {
+        val txToEdit = showConfirmEditTransaction!!
+        AlertDialog(
+            onDismissRequest = { showConfirmEditTransaction = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد تعديل الدفعة", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            text = { Text("هل أنت متأكد من حفظ التعديلات على هذه الدفعة؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateTransaction(txToEdit)
+                        showConfirmEditTransaction = null
+                        showEditPaymentDialog = null
+                    }
+                ) {
+                    Text("تأكيد")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEditTransaction = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showConfirmEditTypeDialog != null) {
+        val typeToEdit = showConfirmEditTypeDialog!!
+        AlertDialog(
+            onDismissRequest = { showConfirmEditTypeDialog = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد تعديل اسم نوع المصروف", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            text = { Text("هل تريد حفظ الاسم الجديد '${pendingExpenseTypeNewName}' لهذا المصروف؟") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateExpenseType(typeToEdit, pendingExpenseTypeNewName)
+                        showConfirmEditTypeDialog = null
+                        showEditTypeDialog = null
+                    }
+                ) {
+                    Text("تأكيد")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmEditTypeDialog = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
     }
 }

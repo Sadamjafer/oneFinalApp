@@ -5,10 +5,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,7 +32,7 @@ import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClientsScreenView(viewModel: TransactionViewModel) {
+fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Unit)? = null) {
     val clients by viewModel.clients.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val allClientOperations by viewModel.allClientOperations.collectAsState()
@@ -64,6 +68,33 @@ fun ClientsScreenView(viewModel: TransactionViewModel) {
                     .padding(paddingValues)
                     .background(MaterialTheme.colorScheme.background)
             ) {
+                // Top Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "رجوع",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = "دفتر العملاء والديون",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+
                 if (clients.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -266,6 +297,14 @@ fun ClientCard(
     }
 }
 
+data class AvailableBalanceMovement(
+    val timestamp: Long,
+    val title: String,
+    val type: String, // "EXPENSE" or "PAYMENT"
+    val amount: Double,
+    val balanceAfter: Double
+)
+
 @Composable
 fun ClientDetailsView(
     client: Client,
@@ -306,6 +345,40 @@ fun ClientDetailsView(
         }
         result.reversed()
     }
+
+    val availableBalanceMovements = remember(clientTransactions, operations) {
+        val expenseItems = clientTransactions.map { tx ->
+            AvailableBalanceMovement(
+                timestamp = tx.timestamp,
+                title = tx.title,
+                type = "EXPENSE",
+                amount = tx.amount,
+                balanceAfter = 0.0
+            )
+        }
+        val paymentItems = operations.filter { it.type == "PAYMENT" }.map { op ->
+            AvailableBalanceMovement(
+                timestamp = op.timestamp,
+                title = op.title,
+                type = "PAYMENT",
+                amount = op.amount,
+                balanceAfter = 0.0
+            )
+        }
+        val combinedSorted = (expenseItems + paymentItems).sortedBy { it.timestamp }
+        
+        var currentBalance = 0.0
+        val movements = mutableListOf<AvailableBalanceMovement>()
+        for (item in combinedSorted) {
+            if (item.type == "EXPENSE") {
+                currentBalance += item.amount
+            } else {
+                currentBalance -= item.amount
+            }
+            movements.add(item.copy(balanceAfter = currentBalance))
+        }
+        movements.reversed()
+    }
     
     var showOperationDialog by remember { mutableStateOf(false) }
     var operationType by remember { mutableStateOf("DEBT") }
@@ -313,6 +386,11 @@ fun ClientDetailsView(
     var operationTitle by remember { mutableStateOf("") }
     var operationToEdit by remember { mutableStateOf<ClientOperation?>(null) }
     var showEditDeleteDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showEditConfirmDialog by remember { mutableStateOf(false) }
+    var pendingOperationAmount by remember { mutableStateOf(0.0) }
+    var pendingOperationTitle by remember { mutableStateOf("") }
+    var pendingOperationType by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -400,13 +478,25 @@ fun ClientDetailsView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "العمليات المنجزة",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "العمليات المنجزة",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "💡 اضغط للتعديل أو الحذف",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -422,9 +512,13 @@ fun ClientDetailsView(
                     .weight(1f),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -442,7 +536,7 @@ fun ClientDetailsView(
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
-                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                         Text(
                             text = "البيان",
                             modifier = Modifier
@@ -453,7 +547,7 @@ fun ClientDetailsView(
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
-                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                         Text(
                             text = "مديونية",
                             modifier = Modifier
@@ -464,7 +558,7 @@ fun ClientDetailsView(
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
-                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                         Text(
                             text = "سداد",
                             modifier = Modifier
@@ -475,7 +569,7 @@ fun ClientDetailsView(
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center
                         )
-                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                         Text(
                             text = "الرصيد",
                             modifier = Modifier
@@ -488,25 +582,23 @@ fun ClientDetailsView(
                         )
                     }
                     
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+                    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     ) {
-                        items(operationsWithBalance) { (op, balance) ->
+                        itemsIndexed(operationsWithBalance) { index, (op, balance) ->
                             val sdf = java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
                             val isDebt = op.type == "DEBT"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(IntrinsicSize.Min)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onLongPress = {
-                                                operationToEdit = op
-                                                showEditDeleteDialog = true
-                                            }
-                                        )
+                                    .clickable {
+                                        operationToEdit = op
+                                        showEditDeleteDialog = true
                                     },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -519,7 +611,7 @@ fun ClientDetailsView(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center
                                 )
-                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
                                     text = op.title,
                                     modifier = Modifier
@@ -529,7 +621,7 @@ fun ClientDetailsView(
                                     color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Start
                                 )
-                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
                                     text = if (isDebt) decimalFormat.format(op.amount) else "-",
                                     modifier = Modifier
@@ -540,7 +632,7 @@ fun ClientDetailsView(
                                     color = if (isDebt) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center
                                 )
-                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
                                     text = if (!isDebt) decimalFormat.format(op.amount) else "-",
                                     modifier = Modifier
@@ -551,7 +643,7 @@ fun ClientDetailsView(
                                     color = if (!isDebt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                     textAlign = TextAlign.Center
                                 )
-                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
                                     text = decimalFormat.format(balance),
                                     modifier = Modifier
@@ -563,7 +655,181 @@ fun ClientDetailsView(
                                     textAlign = TextAlign.Center
                                 )
                             }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f))
+                            if (index < operationsWithBalance.lastIndex) {
+                                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "حركة الرصيد المتاح (المنصرف والسداد)",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (availableBalanceMovements.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                Text("لا توجد حركة للرصيد المتاح", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .weight(1f),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(8.dp))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "التاريخ",
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                        Text(
+                            text = "البيان",
+                            modifier = Modifier
+                                .weight(1.5f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                        Text(
+                            text = "منصرف (+)",
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                        Text(
+                            text = "سداد (-)",
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                        Text(
+                            text = "الرصيد المتاح",
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    
+                    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        itemsIndexed(availableBalanceMovements) { index, movement ->
+                            val sdf = java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
+                            val isExpense = movement.type == "EXPENSE"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = sdf.format(java.util.Date(movement.timestamp)),
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                                Text(
+                                    text = movement.title,
+                                    modifier = Modifier
+                                        .weight(1.5f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Start
+                                )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                                Text(
+                                    text = if (isExpense) decimalFormat.format(movement.amount) else "-",
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isExpense) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                                Text(
+                                    text = if (!isExpense) decimalFormat.format(movement.amount) else "-",
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (!isExpense) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
+                                Text(
+                                    text = decimalFormat.format(movement.balanceAfter),
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            if (index < availableBalanceMovements.lastIndex) {
+                                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
+                            }
                         }
                     }
                 }
@@ -605,12 +871,10 @@ fun ClientDetailsView(
                         if (amount != null && amount > 0) {
                             val finalTitle = if (operationTitle.isNotBlank()) operationTitle else (if (operationType == "DEBT") "مديونية" else "سداد")
                             if (operationToEdit != null) {
-                                viewModel.updateClientOperation(
-                                    operation = operationToEdit!!,
-                                    newType = operationType,
-                                    newAmount = amount,
-                                    newTitle = finalTitle
-                                )
+                                pendingOperationAmount = amount
+                                pendingOperationTitle = finalTitle
+                                pendingOperationType = operationType
+                                showEditConfirmDialog = true
                             } else {
                                 viewModel.addClientOperation(
                                     clientId = client.id,
@@ -618,8 +882,8 @@ fun ClientDetailsView(
                                     amount = amount,
                                     title = finalTitle
                                 )
+                                showOperationDialog = false
                             }
-                            showOperationDialog = false
                         }
                     }
                 ) {
@@ -655,12 +919,92 @@ fun ClientDetailsView(
             dismissButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteClientOperation(operationToEdit!!)
+                        showDeleteConfirmDialog = true
                         showEditDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("حذف")
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmDialog && operationToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد الحذف", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            text = {
+                Text("هل أنت متأكد من حذف هذه العملية بقيمة (${decimalFormat.format(operationToEdit!!.amount)} ج.س)؟\nسيتم حذف العملية نهائياً وتحديث حساب العميل.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteClientOperation(operationToEdit!!)
+                        showDeleteConfirmDialog = false
+                        operationToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("تأكيد الحذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showEditConfirmDialog && operationToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { showEditConfirmDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تأكيد التعديل", color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            text = {
+                Text("هل أنت متأكد من حفظ التغييرات على هذه العملية؟")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.updateClientOperation(
+                            operation = operationToEdit!!,
+                            newType = pendingOperationType,
+                            newAmount = pendingOperationAmount,
+                            newTitle = pendingOperationTitle
+                        )
+                        showEditConfirmDialog = false
+                        showOperationDialog = false
+                        operationToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("تأكيد التعديل")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditConfirmDialog = false }) {
+                    Text("إلغاء")
                 }
             }
         )
