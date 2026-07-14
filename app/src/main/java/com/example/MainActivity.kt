@@ -1950,14 +1950,14 @@ fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> 
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Modern 3D Image Banner
+                    // Modern accounting logo
                     Image(
-                        painter = painterResource(id = R.drawable.img_login_banner_1783265103828),
+                        painter = painterResource(id = R.drawable.img_app_logo_1784062923194),
                         contentDescription = "شعار الدخول",
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(16.dp)),
+                            .size(130.dp)
+                            .clip(CircleShape)
+                            .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
                         contentScale = ContentScale.Crop
                     )
                     
