@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.ExpenseType
 import com.example.data.Transaction
+import com.example.data.Client
 import com.example.ui.TransactionViewModel
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
@@ -48,6 +49,7 @@ fun ExpenseScreenView(
 ) {
     val expenseTypes by viewModel.expenseTypes.collectAsState()
     val transactions by viewModel.allTransactions.collectAsState()
+    val clients by viewModel.clients.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
 
     var showAddTypeDialog by remember { mutableStateOf(false) }
@@ -720,6 +722,11 @@ fun ExpenseScreenView(
     // 3. Popup Dialog to Delete Expense Type
     if (showDeleteTypeDialog != null) {
         val expenseType = showDeleteTypeDialog!!
+        val hasTransactions = transactions.any { it.type == "EXPENSE" && it.category == expenseType.name }
+        val linkedClientsList = clients.filter { it.linkedExpenseCategory == expenseType.name }
+        val hasClients = linkedClientsList.isNotEmpty()
+        val isPrevented = hasTransactions || hasClients
+
         Dialog(onDismissRequest = { showDeleteTypeDialog = null }) {
             Card(
                 modifier = Modifier
@@ -751,7 +758,7 @@ fun ExpenseScreenView(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "حذف نوع المصروف",
+                            text = if (isPrevented) "غير مسموح بالحذف" else "حذف نوع المصروف",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.error
@@ -759,40 +766,78 @@ fun ExpenseScreenView(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        Text(
-                            text = "هل أنت متأكد من حذف نوع المصروف '${expenseType.name}'؟\n\nتنبيه: لن يتم حذف المعاملات المالية المقيدة في الصفحة الرئيسية، ولكن سيزول ربطها بهذا النوع.",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 20.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TextButton(
-                                onClick = { showDeleteTypeDialog = null },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("إلغاء", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (isPrevented) {
+                            val reasonMsg = buildString {
+                                append("لا يمكن حذف بند المصروفات '${expenseType.name}' للأسباب التالية:\n\n")
+                                if (hasTransactions) {
+                                    append("• توجد مبالغ مالية ومعاملات مسجلة ومقيدة تحت هذا البند.\n")
+                                }
+                                if (hasClients) {
+                                    append("• هذا المنصرف مرتبط مع حسابات العملاء الآتية:\n")
+                                    linkedClientsList.forEach { client ->
+                                        append("   - ${client.name}\n")
+                                    }
+                                }
+                                append("\nيرجى تعديل أو حذف المعاملات المرتبطة أو تغيير ارتباط العملاء لتتمكن من حذف هذا البند.")
                             }
+                            Text(
+                                text = reasonMsg,
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
 
                             Button(
-                                onClick = {
-                                    viewModel.deleteExpenseType(expenseType)
-                                    showDeleteTypeDialog = null
-                                },
-                                modifier = Modifier.weight(1.5f),
+                                onClick = { showDeleteTypeDialog = null },
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = MaterialTheme.colorScheme.onSecondary
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("تأكيد الحذف", fontWeight = FontWeight.Bold)
+                                Text("حسنًا، مفهوم", fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text(
+                                text = "هل أنت متأكد من حذف نوع المصروف '${expenseType.name}'؟\n\nتنبيه: لن يتم حذف المعاملات المالية المقيدة في الصفحة الرئيسية، ولكن سيزول ربطها بهذا النوع.",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 20.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                TextButton(
+                                    onClick = { showDeleteTypeDialog = null },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("إلغاء", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.deleteExpenseType(expenseType)
+                                        showDeleteTypeDialog = null
+                                    },
+                                    modifier = Modifier.weight(1.5f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("تأكيد الحذف", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

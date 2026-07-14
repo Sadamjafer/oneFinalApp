@@ -11,6 +11,7 @@ import com.example.data.Client
 import com.example.data.ClientOperation
 import com.example.data.ProfitDeduction
 import com.example.data.TransactionRepository
+import com.example.util.DateUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -147,6 +148,27 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                     addAccount("الحساب الرئيسي")
                 }
             }
+            try {
+                // Auto-repair existing IncomeTypes and corresponding Transactions
+                // whose timestamps do not match the parsed date in name (which is the actual date, e.g. "2026/07/10")
+                val incomes = repository.getAllIncomeTypesDirect()
+                val txs = repository.getAllTransactionsDirect().associateBy { it.id }
+                incomes.forEach { income ->
+                    val parsedTimestamp = DateUtils.parseLocal(income.name)
+                    val isIncomeTimeMismatch = java.lang.Math.abs(income.timestamp - parsedTimestamp) > 60000
+                    val matchingTx = income.transactionId?.let { txs[it] }
+                    val isTxTimeMismatch = matchingTx != null && java.lang.Math.abs(matchingTx.timestamp - parsedTimestamp) > 60000
+
+                    if (isIncomeTimeMismatch || isTxTimeMismatch) {
+                        repository.updateIncomeType(income.copy(timestamp = parsedTimestamp))
+                        if (matchingTx != null) {
+                            repository.update(matchingTx.copy(timestamp = parsedTimestamp))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore any database check error on startup
+            }
         }
     }
 
@@ -215,6 +237,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     // Income Type operations
     fun addIncomeType(name: String, consumedBags: Int, amount: Double, notes: String) {
         val accountId = activeAccountId.value ?: return
+        val parsedTimestamp = DateUtils.parseLocal(name)
         viewModelScope.launch {
             val transactionId = repository.insert(
                 Transaction(
@@ -223,7 +246,8 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                     amount = amount,
                     type = "INCOME",
                     category = "شوالات: $consumedBags",
-                    notes = notes
+                    notes = notes,
+                    timestamp = parsedTimestamp
                 )
             )
             repository.insertIncomeType(
@@ -233,7 +257,8 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                     consumedBags = consumedBags,
                     amount = amount,
                     notes = notes,
-                    transactionId = transactionId
+                    transactionId = transactionId,
+                    timestamp = parsedTimestamp
                 )
             )
         }
@@ -241,6 +266,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
 
     fun updateIncomeType(incomeType: IncomeType, newName: String, newConsumedBags: Int, newAmount: Double, newNotes: String) {
         val accountId = activeAccountId.value ?: return
+        val parsedTimestamp = DateUtils.parseLocal(newName)
         viewModelScope.launch {
             val tId = incomeType.transactionId
             if (tId != null) {
@@ -253,7 +279,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                         type = "INCOME",
                         category = "شوالات: $newConsumedBags",
                         notes = newNotes,
-                        timestamp = incomeType.timestamp
+                        timestamp = parsedTimestamp
                     )
                 )
                 repository.updateIncomeType(
@@ -261,7 +287,8 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                         name = newName,
                         consumedBags = newConsumedBags,
                         amount = newAmount,
-                        notes = newNotes
+                        notes = newNotes,
+                        timestamp = parsedTimestamp
                     )
                 )
             } else {
@@ -273,7 +300,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                         type = "INCOME",
                         category = "شوالات: $newConsumedBags",
                         notes = newNotes,
-                        timestamp = incomeType.timestamp
+                        timestamp = parsedTimestamp
                     )
                 )
                 repository.updateIncomeType(
@@ -282,7 +309,8 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
                         consumedBags = newConsumedBags,
                         amount = newAmount,
                         notes = newNotes,
-                        transactionId = newTId
+                        transactionId = newTId,
+                        timestamp = parsedTimestamp
                     )
                 )
             }

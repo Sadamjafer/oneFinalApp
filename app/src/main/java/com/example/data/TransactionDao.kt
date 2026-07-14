@@ -25,6 +25,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY timestamp DESC")
     fun getTransactionsByAccount(accountId: Long): Flow<List<Transaction>>
 
+    @Query("SELECT * FROM transactions")
+    suspend fun getAllTransactionsDirect(): List<Transaction>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction): Long
 
@@ -46,6 +49,9 @@ interface TransactionDao {
     // Income types operations
     @Query("SELECT * FROM income_types WHERE accountId = :accountId ORDER BY timestamp ASC")
     fun getIncomeTypesByAccount(accountId: Long): Flow<List<IncomeType>>
+
+    @Query("SELECT * FROM income_types")
+    suspend fun getAllIncomeTypesDirect(): List<IncomeType>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertIncomeType(incomeType: IncomeType): Long

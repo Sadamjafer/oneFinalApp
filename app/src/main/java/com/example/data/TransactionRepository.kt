@@ -27,6 +27,10 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
         return transactionDao.getIncomeTypesByAccount(accountId)
     }
 
+    suspend fun getAllIncomeTypesDirect(): List<IncomeType> {
+        return transactionDao.getAllIncomeTypesDirect()
+    }
+
     suspend fun insertIncomeType(incomeType: IncomeType): Long {
         return transactionDao.insertIncomeType(incomeType)
     }
@@ -63,6 +67,10 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     // Transactions Operations (by account id)
     fun getTransactionsForAccount(accountId: Long): Flow<List<Transaction>> {
         return transactionDao.getTransactionsByAccount(accountId)
+    }
+
+    suspend fun getAllTransactionsDirect(): List<Transaction> {
+        return transactionDao.getAllTransactionsDirect()
     }
 
     fun getTotalIncomeForAccount(accountId: Long): Flow<Double?> {
