@@ -56,8 +56,12 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
         return transactionDao.insertExpenseType(expenseType)
     }
 
-    suspend fun updateExpenseType(expenseType: ExpenseType) {
+    suspend fun updateExpenseType(expenseType: ExpenseType, oldName: String) {
         transactionDao.updateExpenseType(expenseType)
+        if (oldName != expenseType.name) {
+            transactionDao.updateTransactionCategoryName(expenseType.accountId, oldName, expenseType.name)
+            transactionDao.updateClientLinkedCategory(expenseType.accountId, oldName, expenseType.name)
+        }
     }
 
     suspend fun deleteExpenseType(expenseType: ExpenseType) {

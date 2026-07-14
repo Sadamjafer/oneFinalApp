@@ -78,6 +78,12 @@ interface TransactionDao {
     @Update
     suspend fun updateExpenseType(expenseType: ExpenseType)
 
+    @Query("UPDATE transactions SET category = :newName WHERE accountId = :accountId AND type = 'EXPENSE' AND category = :oldName")
+    suspend fun updateTransactionCategoryName(accountId: Long, oldName: String, newName: String)
+
+    @Query("UPDATE clients SET linkedExpenseCategory = :newName WHERE accountId = :accountId AND linkedExpenseCategory = :oldName")
+    suspend fun updateClientLinkedCategory(accountId: Long, oldName: String, newName: String)
+
     @Delete
     suspend fun deleteExpenseType(expenseType: ExpenseType)
 

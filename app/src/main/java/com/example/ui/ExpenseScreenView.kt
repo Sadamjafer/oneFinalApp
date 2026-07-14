@@ -36,6 +36,7 @@ import com.example.data.ExpenseType
 import com.example.data.Transaction
 import com.example.data.Client
 import com.example.ui.TransactionViewModel
+import com.example.util.DateUtils
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -256,6 +257,14 @@ fun ExpenseScreenView(
                     }
                     val count = typeTransactions.size
 
+                    val todayStr = remember { DateUtils.formatLocal(System.currentTimeMillis()) }
+                    val todayTransactions = remember(typeTransactions, todayStr) {
+                        typeTransactions.filter { DateUtils.formatLocal(it.timestamp) == todayStr }
+                    }
+                    val latestTodayTx = remember(todayTransactions) {
+                        todayTransactions.maxByOrNull { it.timestamp }
+                    }
+
                     var isExpanded by remember { mutableStateOf(false) }
 
                     Card(
@@ -294,14 +303,35 @@ fun ExpenseScreenView(
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = expenseType.name,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = expenseType.name,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        if (latestTodayTx != null) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${decimalFormat.format(latestTodayTx.amount)} ج.س (${DateUtils.formatLocal(latestTodayTx.timestamp)})",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                     Text(
                                         text = "تاريخ الإنشاء: ${SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).format(Date(expenseType.timestamp))}",
                                         fontSize = 10.sp,

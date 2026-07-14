@@ -337,7 +337,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
 
     fun updateExpenseType(expenseType: ExpenseType, newName: String) {
         viewModelScope.launch {
-            repository.updateExpenseType(expenseType.copy(name = newName))
+            repository.updateExpenseType(expenseType.copy(name = newName), expenseType.name)
         }
     }
 
