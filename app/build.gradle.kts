@@ -8,14 +8,14 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.aistudio.simpleledger.gqxywt"
     minSdk = 24
-    targetSdk = 36
-    versionCode = 2
-    versionName = "1.1"
+    targetSdk = 35
+    versionCode = 3
+    versionName = "1.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
