@@ -685,11 +685,13 @@ fun LedgerDashboard(
             }
             }
             "SECTIONS" -> {
-                SectionsScreenView(
-                    onSectionClick = { sectionId ->
-                        selectedTab = sectionId
-                    }
-                )
+                Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                    SectionsScreenView(
+                        onSectionClick = { sectionId ->
+                            selectedTab = sectionId
+                        }
+                    )
+                }
             }
             "INCOME_SCREEN" -> {
                 IncomeScreenView(
@@ -737,14 +739,16 @@ fun LedgerDashboard(
             }
             "SETTINGS" -> {
                 // Settings screen inside Scaffold
-                AccountsSettingsView(
-                    viewModel = viewModel,
-                    isDarkMode = isDarkMode,
-                    onThemeChange = onThemeChange,
-                    fontScale = fontScale,
-                    onFontScaleChange = onFontScaleChange,
-                    onNavigateBack = { selectedTab = "SECTIONS" }
-                )
+                Box(modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())) {
+                    AccountsSettingsView(
+                        viewModel = viewModel,
+                        isDarkMode = isDarkMode,
+                        onThemeChange = onThemeChange,
+                        fontScale = fontScale,
+                        onFontScaleChange = onFontScaleChange,
+                        onNavigateBack = { selectedTab = "SECTIONS" }
+                    )
+                }
             }
         }
     }
@@ -765,6 +769,7 @@ fun AccountsSettingsView(
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var accountToEdit by remember { mutableStateOf<Account?>(null) }
     var accountToDelete by remember { mutableStateOf<Account?>(null) }
+    var accountToClear by remember { mutableStateOf<Account?>(null) }
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showLogsDialog by remember { mutableStateOf(false) }
     var currentLogsText by remember { mutableStateOf("") }
@@ -802,6 +807,8 @@ fun AccountsSettingsView(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 40.dp)
     ) {
         // Custom Header for Settings
         Row(
@@ -1028,7 +1035,11 @@ fun AccountsSettingsView(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Button(
-                onClick = { backupLauncher.launch("simple_ledger_backup.zip") },
+                onClick = { 
+                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.getDefault())
+                    val timestamp = sdf.format(java.util.Date())
+                    backupLauncher.launch("simple_ledger_backup_$timestamp.zip") 
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
             ) {
@@ -1195,14 +1206,13 @@ fun AccountsSettingsView(
         Spacer(modifier = Modifier.height(10.dp))
 
         // List of all accounts
-        LazyColumn(
+        Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 40.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(accounts, key = { it.id }) { account ->
+            accounts.forEach { account ->
                 val isActive = account.id == currentAccount?.id
 
                 Card(
@@ -1301,6 +1311,17 @@ fun AccountsSettingsView(
                             }
 
                             IconButton(
+                                onClick = { accountToClear = account },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "تفريغ الحساب",
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+
+                            IconButton(
                                 onClick = { accountToDelete = account },
                                 modifier = Modifier.size(36.dp)
                             ) {
@@ -1320,6 +1341,7 @@ fun AccountsSettingsView(
     if (accountToEdit != null) {
         EditAccountNameDialog(
             account = accountToEdit!!,
+            prefs = context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE),
             onDismiss = { accountToEdit = null },
             onConfirm = { newName ->
                 viewModel.updateAccountName(accountToEdit!!, newName)
@@ -1333,10 +1355,23 @@ fun AccountsSettingsView(
         DeleteAccountWarningDialog(
             accountName = accountToDelete!!.name,
             isLastAccount = isLastAccount,
+            prefs = context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE),
             onDismiss = { accountToDelete = null },
             onConfirm = {
                 viewModel.deleteAccount(accountToDelete!!)
                 accountToDelete = null
+            }
+        )
+    }
+
+    if (accountToClear != null) {
+        ClearAccountWarningDialog(
+            accountName = accountToClear!!.name,
+            prefs = context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE),
+            onDismiss = { accountToClear = null },
+            onConfirm = {
+                viewModel.clearAccountData(accountToClear!!)
+                accountToClear = null
             }
         )
     }
@@ -1362,11 +1397,14 @@ fun AccountsSettingsView(
 @Composable
 fun EditAccountNameDialog(
     account: Account,
+    prefs: android.content.SharedPreferences,
     onDismiss: () -> Unit,
     onConfirm: (newName: String) -> Unit
 ) {
     var name by remember { mutableStateOf(account.name) }
-    var showError by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1396,7 +1434,7 @@ fun EditAccountNameDialog(
                     value = name,
                     onValueChange = {
                         name = it
-                        showError = false
+                        errorMessage = ""
                     },
                     label = { Text("اسم المحل أو النشاط التجاري الجديد") },
                     modifier = Modifier.fillMaxWidth(),
@@ -1404,10 +1442,26 @@ fun EditAccountNameDialog(
                     singleLine = true
                 )
 
-                if (showError) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        errorMessage = ""
+                    },
+                    label = { Text("كلمة المرور لتأكيد التعديل") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation()
+                )
+
+                if (errorMessage.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "الرجاء إدخال اسم صحيح للحساب!",
+                        text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -1429,10 +1483,12 @@ fun EditAccountNameDialog(
 
                     Button(
                         onClick = {
-                            if (name.isNotBlank()) {
-                                onConfirm(name.trim())
+                            if (name.isBlank()) {
+                                errorMessage = "الرجاء إدخال اسم صحيح للحساب!"
+                            } else if (password != savedPassword) {
+                                errorMessage = "كلمة المرور غير صحيحة"
                             } else {
-                                showError = true
+                                onConfirm(name.trim())
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -1454,9 +1510,14 @@ fun EditAccountNameDialog(
 fun DeleteAccountWarningDialog(
     accountName: String,
     isLastAccount: Boolean,
+    prefs: android.content.SharedPreferences,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -1510,6 +1571,33 @@ fun DeleteAccountWarningDialog(
                     lineHeight = 20.sp
                 )
 
+                if (!isLastAccount) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            errorMessage = ""
+                        },
+                        label = { Text("كلمة المرور لتأكيد الحذف") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                    
+                    if (errorMessage.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Row(
@@ -1537,7 +1625,13 @@ fun DeleteAccountWarningDialog(
                         }
 
                         Button(
-                            onClick = onConfirm,
+                            onClick = {
+                                if (password != savedPassword) {
+                                    errorMessage = "كلمة المرور غير صحيحة"
+                                } else {
+                                    onConfirm()
+                                }
+                            },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
@@ -1547,6 +1641,127 @@ fun DeleteAccountWarningDialog(
                         ) {
                             Text("تأكيد الحذف", fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ClearAccountWarningDialog(
+    accountName: String,
+    prefs: android.content.SharedPreferences,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🧹",
+                        fontSize = 28.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "تأكيد تفريغ الحساب",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.error
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "هل أنت متأكد من تفريغ كافة بيانات الحساب '$accountName'؟\n\nتنبيه: سيتم حذف كافة المعاملات، العملاء، الديون، والمصروفات المسجلة تحت هذا الحساب بشكل نهائي ولا يمكن التراجع عن هذا الإجراء!",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        errorMessage = ""
+                    },
+                    label = { Text("كلمة المرور لتأكيد التفريغ") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                  
+                if (errorMessage.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("إلغاء", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (password != savedPassword) {
+                                errorMessage = "كلمة المرور غير صحيحة"
+                            } else {
+                                onConfirm()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("تأكيد التفريغ", fontWeight = FontWeight.Bold)
                     }
                 }
             }

@@ -2,7 +2,12 @@ package com.example.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -29,6 +34,12 @@ import androidx.compose.ui.unit.sp
 import com.example.data.Client
 import com.example.data.ClientOperation
 import java.text.DecimalFormat
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.PictureAsPdf
+import com.example.utils.PdfGenerator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,10 +115,13 @@ fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
                         )
                     }
                 } else {
-                    LazyColumn(
+                    // LazyVerticalGrid for landscape support
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 350.dp),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(clients) { client ->
                             val clientTransactions = remember(allTransactions, client) {
@@ -277,8 +291,8 @@ fun ClientCard(
                 )
                 val absBalance = kotlin.math.abs(cumulativeBalance)
                 val balanceText = when {
-                    cumulativeBalance > 0 -> "${decimalFormat.format(absBalance)} (عليه)"
-                    cumulativeBalance < 0 -> "${decimalFormat.format(absBalance)} (له)"
+                    cumulativeBalance > 0 -> "${decimalFormat.format(absBalance)} (المتاح)"
+                    cumulativeBalance < 0 -> "${decimalFormat.format(absBalance)} (عجز)"
                     else -> "خالص"
                 }
                 val balanceColor = when {
@@ -392,10 +406,20 @@ fun ClientDetailsView(
     var pendingOperationTitle by remember { mutableStateOf("") }
     var pendingOperationType by remember { mutableStateOf("") }
 
+    var pdfUriToExport by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            pdfUriToExport = uri
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 32.dp)
     ) {
         Row(
             modifier = Modifier
@@ -411,8 +435,20 @@ fun ClientDetailsView(
                 text = client.name,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
             )
+            val sdfForPdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.getDefault()) }
+            IconButton(onClick = {
+                val timestamp = sdfForPdf.format(java.util.Date())
+                pdfLauncher.launch("client_${client.name}_$timestamp.pdf")
+            }) {
+                Icon(
+                    imageVector = Icons.Default.PictureAsPdf,
+                    contentDescription = "تصدير كملف PDF",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         
         Card(
@@ -508,15 +544,14 @@ fun ClientDetailsView(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .weight(1f),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                 ) {
                     Row(
@@ -584,12 +619,10 @@ fun ClientDetailsView(
                     
                     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        itemsIndexed(operationsWithBalance) { index, (op, balance) ->
+                        operationsWithBalance.forEachIndexed { index, (op, balance) ->
                             val sdf = java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
                             val isDebt = op.type == "DEBT"
                             Row(
@@ -684,15 +717,14 @@ fun ClientDetailsView(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .weight(1f),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                 ) {
                     Row(
@@ -760,12 +792,10 @@ fun ClientDetailsView(
                     
                     HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
 
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        itemsIndexed(availableBalanceMovements) { index, movement ->
+                        availableBalanceMovements.forEachIndexed { index, movement ->
                             val sdf = java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault())
                             val isExpense = movement.type == "EXPENSE"
                             Row(
@@ -1008,5 +1038,41 @@ fun ClientDetailsView(
                 }
             }
         )
+    }
+
+    LaunchedEffect(pdfUriToExport) {
+        pdfUriToExport?.let { uri ->
+            val title = "كشف حساب العميل: ${client.name}"
+            val sdf = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.getDefault())
+
+            val operationsHeaders = listOf("الرصيد", "سداد", "مديونية", "البيان", "التاريخ")
+            val operationsData = mutableListOf<List<String>>()
+            operationsWithBalance.forEach { (op, balance) ->
+                val isDebt = op.type == "DEBT"
+                val dateStr = sdf.format(java.util.Date(op.timestamp))
+                val debtAmt = if (isDebt) decimalFormat.format(op.amount) else "-"
+                val payAmt = if (!isDebt) decimalFormat.format(op.amount) else "-"
+                operationsData.add(listOf(
+                    decimalFormat.format(balance),
+                    payAmt,
+                    debtAmt,
+                    op.title,
+                    dateStr
+                ))
+            }
+            
+            PdfGenerator.generatePdf(
+                context = context,
+                uri = uri,
+                title = title,
+                headers = operationsHeaders,
+                data = operationsData,
+                summary = listOf(
+                    "إجمالي الديون: ${decimalFormat.format(operationsWithBalance.firstOrNull()?.second ?: 0.0)}",
+                    "الرصيد المتاح: ${decimalFormat.format(availableBalanceMovements.lastOrNull()?.balanceAfter ?: 0.0)}"
+                )
+            )
+            pdfUriToExport = null
+        }
     }
 }

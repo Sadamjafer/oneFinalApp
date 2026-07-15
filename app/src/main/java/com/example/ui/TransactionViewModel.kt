@@ -198,6 +198,12 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         }
     }
 
+    fun clearAccountData(account: Account) {
+        viewModelScope.launch {
+            repository.clearAccountData(account.id)
+        }
+    }
+
     fun addTransaction(title: String, amount: Double, type: String, category: String, notes: String = "", timestamp: Long = System.currentTimeMillis()) {
         val accountId = activeAccountId.value ?: return
         viewModelScope.launch {

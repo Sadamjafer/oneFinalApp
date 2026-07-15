@@ -16,10 +16,17 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     }
 
     suspend fun deleteAccount(account: Account) {
+        clearAccountData(account.id)
         transactionDao.deleteAccount(account)
-        transactionDao.deleteTransactionsByAccountId(account.id)
-        transactionDao.deleteIncomeTypesByAccountId(account.id)
-        transactionDao.deleteExpenseTypesByAccountId(account.id)
+    }
+
+    suspend fun clearAccountData(accountId: Long) {
+        transactionDao.deleteTransactionsByAccountId(accountId)
+        transactionDao.deleteIncomeTypesByAccountId(accountId)
+        transactionDao.deleteExpenseTypesByAccountId(accountId)
+        transactionDao.deleteClientOperationsByAccountId(accountId)
+        transactionDao.deleteClientsByAccountId(accountId)
+        transactionDao.deleteProfitDeductionsByAccountId(accountId)
     }
 
     // Income Types Operations

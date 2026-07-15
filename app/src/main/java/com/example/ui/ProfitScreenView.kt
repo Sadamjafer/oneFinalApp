@@ -28,6 +28,12 @@ import com.example.data.ProfitDeduction
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.PictureAsPdf
+import com.example.utils.PdfGenerator
 
 sealed class ProfitLedgerEntry {
     abstract val timestamp: Long
@@ -60,6 +66,14 @@ fun ProfitScreenView(
     val profitDeductions by viewModel.allProfitDeductions.collectAsState()
 
     val decimalFormat = remember { DecimalFormat("#,##0.00") }
+    
+    var pdfUriToExport by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            pdfUriToExport = uri
+        }
+    }
     
     val entriesWithBalance = remember(transactions, profitDeductions) {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -142,6 +156,17 @@ fun ProfitScreenView(
                     text = "حركة صافي الربح اليومي والخصومات",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+            }
+            val sdfForPdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.getDefault()) }
+            IconButton(onClick = {
+                val timestamp = sdfForPdf.format(java.util.Date())
+                pdfLauncher.launch("profit_$timestamp.pdf")
+            }) {
+                Icon(
+                    imageVector = Icons.Default.PictureAsPdf,
+                    contentDescription = "تصدير كملف PDF",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -228,7 +253,7 @@ fun ProfitScreenView(
                 
                 HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
                 
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     itemsIndexed(entriesWithBalance) { index, (entry, balance) ->
                         val displaySdf = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
                         val displayDate = displaySdf.format(Date(entry.timestamp))
@@ -456,5 +481,39 @@ fun ProfitScreenView(
                 }
             }
         )
+    }
+
+    LaunchedEffect(pdfUriToExport) {
+        pdfUriToExport?.let { uri ->
+            val title = "سجل الأرباح والخصومات"
+            val displaySdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
+
+            val headers = listOf("الرصيد", "المبلغ", "البيان", "التاريخ")
+            val data = mutableListOf<List<String>>()
+            
+            entriesWithBalance.forEach { (entry, balance) ->
+                val displayDate = displaySdf.format(java.util.Date(entry.timestamp)).replace(" 00:00", "")
+                val isDeduction = entry is DeductionEntry
+                val statement = if (entry is DailyProfitEntry) "صافي ربح ${entry.dateString}" else (entry as DeductionEntry).deduction.title
+                val amountStr = decimalFormat.format(entry.amount)
+                
+                data.add(listOf(
+                    decimalFormat.format(balance),
+                    amountStr,
+                    statement,
+                    displayDate
+                ))
+            }
+            
+            PdfGenerator.generatePdf(
+                context = context,
+                uri = uri,
+                title = title,
+                headers = headers,
+                data = data,
+                summary = listOf("الرصيد النهائي: ${decimalFormat.format(entriesWithBalance.firstOrNull()?.second ?: 0.0)}")
+            )
+            pdfUriToExport = null
+        }
     }
 }

@@ -3,6 +3,9 @@ package com.example.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +25,11 @@ import com.example.util.DateUtils
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.PictureAsPdf
 
 data class ReportRowData(
     val statement: String,
@@ -45,6 +53,14 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
     var showEndDatePicker by remember { mutableStateOf(false) }
     val startDatePickerState = rememberDatePickerState()
     val endDatePickerState = rememberDatePickerState()
+
+    var pdfUriToExport by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            pdfUriToExport = uri
+        }
+    }
 
     val currentCalendar = remember { Calendar.getInstance() }
     var selectedMonth by remember { mutableStateOf(currentCalendar.get(Calendar.MONTH)) }
@@ -155,8 +171,20 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
                 text = "التقارير والإحصائيات",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
+            val sdfForPdf = remember { SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault()) }
+            IconButton(onClick = {
+                val timestamp = sdfForPdf.format(Date())
+                pdfLauncher.launch("reports_$timestamp.pdf")
+            }) {
+                Icon(
+                    imageVector = Icons.Default.PictureAsPdf,
+                    contentDescription = "تصدير كملف PDF",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
 
@@ -434,6 +462,29 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
             netBalance = netBalance,
             isExpandable = selectedTab != 0
         )
+        
+        LaunchedEffect(pdfUriToExport) {
+            pdfUriToExport?.let { uri ->
+                val title = "تقرير حركة الخزينة"
+                val headers = listOf("المبلغ", "البيان")
+                val data = mutableListOf<List<String>>()
+                
+                data.add(listOf("", "=== الإيرادات ==="))
+                incomesData.forEach { data.add(listOf(decimalFormat.format(it.amount), it.statement)) }
+                
+                data.add(listOf("", "=== المصروفات ==="))
+                expensesData.forEach { data.add(listOf(decimalFormat.format(it.amount), it.statement)) }
+                
+                val summary = listOf(
+                    "إجمالي الإيرادات: ${decimalFormat.format(totalIncome)}",
+                    "إجمالي المصروفات: ${decimalFormat.format(totalExpense)}",
+                    "صافي الربح: ${decimalFormat.format(netBalance)}"
+                )
+                
+                com.example.utils.PdfGenerator.generatePdf(context, uri, title, headers, data, summary)
+                pdfUriToExport = null
+            }
+        }
     }
 }
 
@@ -447,10 +498,12 @@ fun ReportTableView(
     netBalance: Double,
     isExpandable: Boolean = false
 ) {
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 350.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Table 1: Incomes
         item {
@@ -477,7 +530,7 @@ fun ReportTableView(
         }
 
         // Table 3: Summary
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             SummaryTable(
                 totalIncome = totalIncome,
                 totalExpense = totalExpense,

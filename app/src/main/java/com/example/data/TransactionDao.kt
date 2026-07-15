@@ -103,6 +103,12 @@ interface TransactionDao {
     @Delete
     suspend fun deleteClient(client: Client)
 
+    @Query("DELETE FROM clients WHERE accountId = :accountId")
+    suspend fun deleteClientsByAccountId(accountId: Long)
+
+    @Query("DELETE FROM client_operations WHERE clientId IN (SELECT id FROM clients WHERE accountId = :accountId)")
+    suspend fun deleteClientOperationsByAccountId(accountId: Long)
+
     // Client operations operations
     @Query("SELECT * FROM client_operations WHERE clientId = :clientId ORDER BY timestamp DESC")
     fun getOperationsByClient(clientId: Long): Flow<List<ClientOperation>>
@@ -130,4 +136,7 @@ interface TransactionDao {
 
     @Delete
     suspend fun deleteProfitDeduction(deduction: ProfitDeduction)
+
+    @Query("DELETE FROM profit_deductions WHERE accountId = :accountId")
+    suspend fun deleteProfitDeductionsByAccountId(accountId: Long)
 }
