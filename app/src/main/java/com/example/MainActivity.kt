@@ -240,7 +240,6 @@ fun LedgerDashboard(
             ) {
                 // Dropdown & Header Menu States
                 var showAccountsMenu by remember { mutableStateOf(false) }
-                var showAddAccountDialog by remember { mutableStateOf(false) }
 
                 // Top Custom Header with Shop Dropdown selector
                 Row(
@@ -284,7 +283,7 @@ fun LedgerDashboard(
                             )
                         }
                         Text(
-                            text = "انقر لتبديل أو إضافة محل تجاري جديد",
+                            text = "انقر لتبديل المحل التجاري أو الحساب",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
@@ -333,53 +332,9 @@ fun LedgerDashboard(
                                     onClick = {
                                         viewModel.selectAccount(account.id)
                                         showAccountsMenu = false
-                                    },
-                                    trailingIcon = {
-                                        if (accounts.size > 1) {
-                                            IconButton(
-                                                onClick = {
-                                                    viewModel.deleteAccount(account)
-                                                    showAccountsMenu = false
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Delete,
-                                                    contentDescription = "حذف الحساب",
-                                                    tint = Color.Red.copy(alpha = 0.6f),
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
                                     }
                                 )
                             }
-
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                            DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "إضافة حساب",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text(
-                                            text = "إنشاء حساب/محل جديد",
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    showAccountsMenu = false
-                                    showAddAccountDialog = true
-                                }
-                            )
                         }
                     }
 
@@ -404,17 +359,6 @@ fun LedgerDashboard(
                             )
                         }
                     }
-                }
-
-                // Dialogue popup for adding new account
-                if (showAddAccountDialog) {
-                    AddAccountDialog(
-                        onDismiss = { showAddAccountDialog = false },
-                        onConfirm = { name ->
-                            viewModel.addAccount(name)
-                            showAddAccountDialog = false
-                        }
-                    )
                 }
 
                 // Top section: Balance and Quick Actions
@@ -2509,12 +2453,7 @@ fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: (Int) 
                 }
             }
             
-            Text(
-                text = "المستوى 1: 12345 | المستوى 2: 22222 | المستوى 3: 33333",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                textAlign = TextAlign.Center
-            )
+            // Removed password alerts from login screen as requested by user
         }
     }
 }
@@ -2561,7 +2500,7 @@ fun ChangePasswordDialog(prefs: android.content.SharedPreferences, onDismiss: ()
                     OutlinedTextField(
                         value = editPassword1,
                         onValueChange = { editPassword1 = it; errorMessage = ""; successMessage = "" },
-                        placeholder = { Text("الحالية: $currentPassword1") },
+                        placeholder = { Text("أدخل كلمة المرور الجديدة") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
@@ -2576,7 +2515,7 @@ fun ChangePasswordDialog(prefs: android.content.SharedPreferences, onDismiss: ()
                     OutlinedTextField(
                         value = editPassword2,
                         onValueChange = { editPassword2 = it; errorMessage = ""; successMessage = "" },
-                        placeholder = { Text("الحالية: $currentPassword2") },
+                        placeholder = { Text("أدخل كلمة المرور الجديدة") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
@@ -2591,7 +2530,7 @@ fun ChangePasswordDialog(prefs: android.content.SharedPreferences, onDismiss: ()
                     OutlinedTextField(
                         value = editPassword3,
                         onValueChange = { editPassword3 = it; errorMessage = ""; successMessage = "" },
-                        placeholder = { Text("الحالية: $currentPassword3") },
+                        placeholder = { Text("أدخل كلمة المرور الجديدة") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,

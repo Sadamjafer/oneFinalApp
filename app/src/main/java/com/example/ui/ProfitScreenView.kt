@@ -499,7 +499,8 @@ fun ProfitScreenView(
 
     LaunchedEffect(pdfUriToExport) {
         pdfUriToExport?.let { uri ->
-            val title = "سجل الأرباح والخصومات"
+            val accountName = viewModel.currentAccount.value?.name ?: ""
+            val title = "سجل الأرباح والخصومات" + if (accountName.isNotEmpty()) " - $accountName" else ""
             val displaySdf = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
 
             val headers = listOf("الرصيد", "المبلغ", "البيان", "التاريخ")

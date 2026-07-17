@@ -3,6 +3,8 @@ package com.example.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -467,7 +469,8 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
         
         LaunchedEffect(pdfUriToExport) {
             pdfUriToExport?.let { uri ->
-                val title = "تقرير حركة الخزينة"
+                val accountName = viewModel.currentAccount.value?.name ?: ""
+                val title = "تقرير حركة الخزينة" + if (accountName.isNotEmpty()) " - $accountName" else ""
                 val headers = listOf("المبلغ", "البيان")
                 val data = mutableListOf<List<String>>()
                 
@@ -559,179 +562,230 @@ fun ReportTable(
 ) {
     var expandedRows by remember { mutableStateOf(setOf<String>()) }
 
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
-            .padding(1.dp)
-            .background(MaterialTheme.colorScheme.surface)
+            .shadow(4.dp, shape = RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
-        // Title
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(headerColor.copy(alpha = 0.1f))
-                .padding(12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(title, fontWeight = FontWeight.Bold, color = headerColor, fontSize = 16.sp)
-        }
-        
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
-
-        // Headers
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "البيان",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
-            Text(
-                text = "المبلغ",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-        
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
-
-        // Rows
-        rows.forEach { row ->
-            val isExpanded = expandedRows.contains(row.statement)
-            val canExpand = isExpandable && row.transactions.isNotEmpty()
-            
+        Column {
+            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
-                    .then(
-                        if (canExpand) {
-                            Modifier.clickable {
-                                expandedRows = if (isExpanded) {
-                                    expandedRows - row.statement
-                                } else {
-                                    expandedRows + row.statement
-                                }
-                            }
-                        } else Modifier
-                    ),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(headerColor.copy(alpha = 0.08f))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Text(
+                    text = if (headerColor == MaterialTheme.colorScheme.primary) "📈" else "📉",
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = headerColor,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                // Pill badge for count of items
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = headerColor.copy(alpha = 0.15f),
+                    modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Text(
-                        text = row.statement, 
-                        fontSize = 13.sp,
-                        fontWeight = if (isExpanded) FontWeight.Bold else FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "${rows.size} بند",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = headerColor,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
-                    if (canExpand) {
-                        Text(
-                            text = if (isExpanded) "▼" else "◀",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                    }
                 }
-                Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Column Headers
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .padding(vertical = 10.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(row.amount)} ج.س", 
-                    modifier = Modifier.weight(1f).padding(10.dp),
-                    fontSize = 13.sp,
-                    color = headerColor,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    fontWeight = if (isExpanded) FontWeight.Bold else FontWeight.Medium
+                    text = "البيان والنوع",
+                    modifier = Modifier.weight(1.5f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "المبلغ",
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
 
-            if (isExpanded && canExpand) {
-                row.transactions.forEach { tx ->
-                    Row(
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Rows
+            if (rows.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "لا توجد بيانات مسجلة",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            } else {
+                rows.forEachIndexed { index, row ->
+                    val isExpanded = expandedRows.contains(row.statement)
+                    val canExpand = isExpandable && row.transactions.isNotEmpty()
+                    val rowBg = if (isExpanded) {
+                        headerColor.copy(alpha = 0.03f)
+                    } else if (index % 2 == 0) {
+                        MaterialTheme.colorScheme.surface
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                    }
+
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(IntrinsicSize.Min)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)),
-                        verticalAlignment = Alignment.CenterVertically
+                            .background(rowBg)
                     ) {
                         Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 20.dp, vertical = 8.dp),
+                                .fillMaxWidth()
+                                .then(
+                                    if (canExpand) {
+                                        Modifier.clickable {
+                                            expandedRows = if (isExpanded) {
+                                                expandedRows - row.statement
+                                            } else {
+                                                expandedRows + row.statement
+                                            }
+                                        }
+                                    } else Modifier
+                                )
+                                .padding(vertical = 12.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "📅 ${com.example.util.DateUtils.formatLocal(tx.timestamp)}",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (tx.notes.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.weight(1.5f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
                                 Text(
-                                    text = " (${tx.notes})",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    text = row.statement,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isExpanded) FontWeight.Bold else FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
+                                if (canExpand) {
+                                    Text(
+                                        text = if (isExpanded) "▼ التفاصيل" else "◀ التفاصيل",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = headerColor.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(start = 4.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(row.amount)} ج.س",
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp,
+                                color = headerColor,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Expanded Details (Transactions)
+                        if (isExpanded && canExpand) {
+                            row.transactions.forEach { tx ->
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(headerColor.copy(alpha = 0.05f))
+                                        .padding(vertical = 8.dp, horizontal = 24.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1.5f)) {
+                                        Text(
+                                            text = "📅 ${com.example.util.DateUtils.formatLocal(tx.timestamp)}",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        if (tx.notes.isNotBlank()) {
+                                            Text(
+                                                text = "📝 ${tx.notes}",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(tx.amount)} ج.س",
+                                        modifier = Modifier.weight(1f),
+                                        fontSize = 12.sp,
+                                        color = headerColor.copy(alpha = 0.8f),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
-                        Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)))
-                        Text(
-                            text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(tx.amount)} ج.س", 
-                            modifier = Modifier.weight(1f).padding(8.dp),
-                            fontSize = 12.sp,
-                            color = headerColor.copy(alpha = 0.8f),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 }
             }
-        }
 
-        // Footer
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .background(headerColor.copy(alpha = 0.05f)),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "الإجمالي",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
-            Text(
-                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalAmount)} ج.س",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = headerColor,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            // Footer
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerColor.copy(alpha = 0.04f))
+                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "إجمالي البند",
+                    modifier = Modifier.weight(1.5f),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalAmount)} ج.س",
+                    modifier = Modifier.weight(1f),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp,
+                    color = headerColor,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -744,103 +798,134 @@ fun SummaryTable(
     decimalFormat: DecimalFormat,
     userLevel: Int = 1
 ) {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
-            .padding(1.dp)
-            .background(MaterialTheme.colorScheme.surface)
+            .shadow(6.dp, shape = RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
     ) {
-        // Title
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF3F51B5).copy(alpha = 0.1f))
-                .padding(12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("جدول الخلاصة", fontWeight = FontWeight.Bold, color = Color(0xFF3F51B5), fontSize = 16.sp)
-        }
-        
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+        Column {
+            // Title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF3F51B5).copy(alpha = 0.08f))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("📊", fontSize = 18.sp)
+                Text(
+                    text = "جدول الخلاصة المالية",
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF3F51B5),
+                    fontSize = 15.sp
+                )
+            }
 
-        // Income Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "إجمالي الإيرادات",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
-            Text(
-                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalIncome)} ج.س",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-        // Expense Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "إجمالي المصروفات",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
-            Text(
-                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalExpense)} ج.س",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                color = MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f))
+            // Income Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1.5f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("🟢", fontSize = 12.sp)
+                    Text(
+                        text = "إجمالي الإيرادات",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Text(
+                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalIncome)} ج.س",
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
 
-        // Net Balance Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-                .background(if (netBalance >= 0) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "صافي الربح",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
-            Text(
-                text = if (userLevel == 3) "████ ج.س" else "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
-                modifier = Modifier.weight(1f).padding(10.dp),
-                color = if (netBalance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+            // Expense Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1.5f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("🔴", fontSize = 12.sp)
+                    Text(
+                        text = "إجمالي المصروفات",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Text(
+                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalExpense)} ج.س",
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            // Net Balance Row
+            val netColor = if (netBalance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            val netBg = if (netBalance >= 0) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(netBg)
+                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1.5f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(if (netBalance >= 0) "💰" else "⚠️", fontSize = 14.sp)
+                    Text(
+                        text = "صافي الربح",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Text(
+                    text = if (userLevel == 3) "████ ج.س" else "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
+                    modifier = Modifier.weight(1f),
+                    color = netColor,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
         }
     }
 }

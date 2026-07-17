@@ -1103,7 +1103,8 @@ fun ClientDetailsView(
 
     LaunchedEffect(pdfUriToExport) {
         pdfUriToExport?.let { uri ->
-            val title = "كشف حساب العميل: ${client.name}"
+            val accountName = viewModel.currentAccount.value?.name ?: ""
+            val title = "كشف حساب العميل: ${client.name}" + if (accountName.isNotEmpty()) " - $accountName" else ""
             val sdf = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.getDefault())
 
             val operationsHeaders = listOf("الرصيد", "سداد", "مديونية", "البيان", "التاريخ")
