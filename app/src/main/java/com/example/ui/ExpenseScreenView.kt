@@ -56,6 +56,10 @@ fun ExpenseScreenView(
     val clients by viewModel.clients.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
 
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
+
     var showAddTypeDialog by remember { mutableStateOf(false) }
     var showEditTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var showDeleteTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
@@ -66,7 +70,7 @@ fun ExpenseScreenView(
     var showConfirmEditTypeDialog by remember { mutableStateOf<ExpenseType?>(null) }
     var pendingExpenseTypeNewName by remember { mutableStateOf("") }
 
-    val decimalFormat = remember { DecimalFormat("#,##0.##") }
+    val decimalFormat = remember { DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
 
     Column(
         modifier = Modifier
@@ -153,7 +157,14 @@ fun ExpenseScreenView(
 
         // Main Action Button: Add new Expense Type
         Button(
-            onClick = { showAddTypeDialog = true },
+            onClick = {
+                if (userLevel == 1) {
+                    showAddTypeDialog = true
+                } else {
+                    showApologyDialog = true
+                    apologyMessage = "عذراً، لا تمتلك الصلاحية لإضافة بنود مصروفات جديدة."
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
@@ -328,7 +339,7 @@ fun ExpenseScreenView(
                                                 shape = RoundedCornerShape(6.dp)
                                             ) {
                                                 Text(
-                                                    text = "${decimalFormat.format(latestTodayTx.amount)} ج.س (${DateUtils.formatLocal(latestTodayTx.timestamp)})",
+                                                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(latestTodayTx.amount)} ج.س (${DateUtils.formatLocal(latestTodayTx.timestamp)})",
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onErrorContainer,
@@ -379,7 +390,7 @@ fun ExpenseScreenView(
                                             color = MaterialTheme.colorScheme.error
                                         )
                                         Text(
-                                            text = "${decimalFormat.format(totalAmount)} ج.س",
+                                            text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalAmount)} ج.س",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 18.sp,
                                             color = MaterialTheme.colorScheme.error
@@ -464,7 +475,7 @@ fun ExpenseScreenView(
                                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                 ) {
                                                     Text(
-                                                        text = "${decimalFormat.format(transaction.amount)} ج.س",
+                                                        text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(transaction.amount)} ج.س",
                                                         fontWeight = FontWeight.Bold,
                                                         fontSize = 12.sp,
                                                         color = MaterialTheme.colorScheme.error
@@ -476,7 +487,12 @@ fun ExpenseScreenView(
                                                         modifier = Modifier
                                                             .size(16.dp)
                                                             .clickable {
-                                                                showEditPaymentDialog = transaction
+                                                                if (userLevel == 1) {
+                                                                    showEditPaymentDialog = transaction
+                                                                } else {
+                                                                    showApologyDialog = true
+                                                                    apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل دفعات المصروفات."
+                                                                }
                                                             }
                                                     )
                                                     Icon(
@@ -486,7 +502,12 @@ fun ExpenseScreenView(
                                                         modifier = Modifier
                                                             .size(16.dp)
                                                             .clickable {
-                                                                showConfirmDeleteTransaction = transaction
+                                                                if (userLevel == 1) {
+                                                                    showConfirmDeleteTransaction = transaction
+                                                                } else {
+                                                                    showApologyDialog = true
+                                                                    apologyMessage = "عذراً، لا تمتلك الصلاحية لحذف دفعات المصروفات."
+                                                                }
                                                             }
                                                     )
                                                 }
@@ -504,7 +525,14 @@ fun ExpenseScreenView(
                                 ) {
                                     // Add Amount / Register Payment Button
                                     Button(
-                                        onClick = { showRegisterAmountDialog = expenseType },
+                                        onClick = {
+                                            if (userLevel == 1) {
+                                                showRegisterAmountDialog = expenseType
+                                            } else {
+                                                showApologyDialog = true
+                                                apologyMessage = "عذراً، لا تمتلك الصلاحية لتسجيل مبالغ مصروفات جديدة."
+                                            }
+                                        },
                                         modifier = Modifier.weight(1.3f),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.error,
@@ -524,7 +552,14 @@ fun ExpenseScreenView(
 
                                     // Rename Button
                                     OutlinedButton(
-                                        onClick = { showEditTypeDialog = expenseType },
+                                        onClick = {
+                                            if (userLevel == 1) {
+                                                showEditTypeDialog = expenseType
+                                            } else {
+                                                showApologyDialog = true
+                                                apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل أسماء بنود المصروفات."
+                                            }
+                                        },
                                         modifier = Modifier.weight(0.9f),
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(vertical = 4.dp),
@@ -544,7 +579,14 @@ fun ExpenseScreenView(
 
                                     // Delete Button
                                     OutlinedButton(
-                                        onClick = { showDeleteTypeDialog = expenseType },
+                                        onClick = {
+                                            if (userLevel == 1) {
+                                                showDeleteTypeDialog = expenseType
+                                            } else {
+                                                showApologyDialog = true
+                                                apologyMessage = "عذراً، لا تمتلك الصلاحية لحذف بنود المصروفات."
+                                            }
+                                        },
                                         modifier = Modifier.weight(0.9f),
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(vertical = 4.dp),
@@ -1369,6 +1411,35 @@ fun ExpenseScreenView(
             dismissButton = {
                 TextButton(onClick = { showConfirmEditTypeDialog = null }) {
                     Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
                 }
             }
         )

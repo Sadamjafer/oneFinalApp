@@ -48,7 +48,11 @@ fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
     val allTransactions by viewModel.allTransactions.collectAsState()
     val allClientOperations by viewModel.allClientOperations.collectAsState()
     val expenseTypes by viewModel.expenseTypes.collectAsState()
-    val decimalFormat = remember { DecimalFormat("#,##0.##") }
+    val decimalFormat = remember { DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
+
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
 
     var showAddClientDialog by remember { mutableStateOf(false) }
     var selectedClient by remember { mutableStateOf<Client?>(null) }
@@ -65,7 +69,14 @@ fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
         Scaffold(
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = { showAddClientDialog = true },
+                    onClick = {
+                        if (userLevel == 1) {
+                            showAddClientDialog = true
+                        } else {
+                            showApologyDialog = true
+                            apologyMessage = "عذراً، لا تمتلك الصلاحية لإضافة عملاء جدد."
+                        }
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
@@ -145,7 +156,8 @@ fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
                                 client = client,
                                 cumulativeBalance = cumulativeBalance,
                                 decimalFormat = decimalFormat,
-                                onClick = { selectedClient = client }
+                                onClick = { selectedClient = client },
+                                userLevel = userLevel
                             )
                         }
                     }
@@ -227,6 +239,35 @@ fun ClientsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
             }
         )
     }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -234,7 +275,8 @@ fun ClientCard(
     client: Client,
     cumulativeBalance: Double,
     decimalFormat: DecimalFormat,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    userLevel: Int = 1
 ) {
     Card(
         modifier = Modifier
@@ -290,10 +332,10 @@ fun ClientCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 val absBalance = kotlin.math.abs(cumulativeBalance)
-                val balanceText = when {
+                val balanceText = if (userLevel == 3) "████" else when {
                     cumulativeBalance > 0 -> "${decimalFormat.format(absBalance)} (المتاح)"
                     cumulativeBalance < 0 -> "${decimalFormat.format(absBalance)} (عجز)"
-                    else -> "خالص"
+                    else -> "خ خالص"
                 }
                 val balanceColor = when {
                     cumulativeBalance > 0 -> MaterialTheme.colorScheme.error
@@ -327,6 +369,10 @@ fun ClientDetailsView(
     viewModel: TransactionViewModel,
     onBack: () -> Unit
 ) {
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
+
     // Filter expenses that match the linked category (and maybe containing client name? 
     // Wait, if it just links to an expense category, does it mean ALL expenses of that category belong to the client?
     // "تحتوي علي اجمالي الرصيد المتاح و هو اجمالي الصرف المقيد في المصروفات"
@@ -469,7 +515,7 @@ fun ClientDetailsView(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "${decimalFormat.format(totalAvailableBalance)} ج.س",
+                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalAvailableBalance)} ج.س",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -485,11 +531,16 @@ fun ClientDetailsView(
         ) {
             Button(
                 onClick = {
-                    operationToEdit = null
-                    operationType = "DEBT"
-                    operationTitle = "مديونية جديدة"
-                    operationAmount = ""
-                    showOperationDialog = true
+                    if (userLevel == 1) {
+                        operationToEdit = null
+                        operationType = "DEBT"
+                        operationTitle = "مديونية جديدة"
+                        operationAmount = ""
+                        showOperationDialog = true
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، لا تمتلك الصلاحية لتقييد مديونيات للعملاء."
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -499,11 +550,16 @@ fun ClientDetailsView(
 
             Button(
                 onClick = {
-                    operationToEdit = null
-                    operationType = "PAYMENT"
-                    operationTitle = "سداد"
-                    operationAmount = ""
-                    showOperationDialog = true
+                    if (userLevel == 1) {
+                        operationToEdit = null
+                        operationType = "PAYMENT"
+                        operationTitle = "سداد"
+                        operationAmount = ""
+                        showOperationDialog = true
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، لا تمتلك الصلاحية لتقييد سداد للعملاء."
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -630,8 +686,13 @@ fun ClientDetailsView(
                                     .fillMaxWidth()
                                     .height(IntrinsicSize.Min)
                                     .clickable {
-                                        operationToEdit = op
-                                        showEditDeleteDialog = true
+                                        if (userLevel == 1) {
+                                            operationToEdit = op
+                                            showEditDeleteDialog = true
+                                        } else {
+                                            showApologyDialog = true
+                                            apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل أو حذف مديونيات العملاء."
+                                        }
                                     },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -656,7 +717,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = if (isDebt) decimalFormat.format(op.amount) else "-",
+                                    text = if (userLevel == 3) "████" else if (isDebt) decimalFormat.format(op.amount) else "-",
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -667,7 +728,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = if (!isDebt) decimalFormat.format(op.amount) else "-",
+                                    text = if (userLevel == 3) "████" else if (!isDebt) decimalFormat.format(op.amount) else "-",
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -678,7 +739,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = decimalFormat.format(balance),
+                                    text = if (userLevel == 3) "████" else decimalFormat.format(balance),
                                     modifier = Modifier
                                         .weight(1.2f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -825,7 +886,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = if (isExpense) decimalFormat.format(movement.amount) else "-",
+                                    text = if (userLevel == 3) "████" else if (isExpense) decimalFormat.format(movement.amount) else "-",
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -836,7 +897,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = if (!isExpense) decimalFormat.format(movement.amount) else "-",
+                                    text = if (userLevel == 3) "████" else if (!isExpense) decimalFormat.format(movement.amount) else "-",
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -847,7 +908,7 @@ fun ClientDetailsView(
                                 )
                                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                                 Text(
-                                    text = decimalFormat.format(movement.balanceAfter),
+                                    text = if (userLevel == 3) "████" else decimalFormat.format(movement.balanceAfter),
                                     modifier = Modifier
                                         .weight(1.2f)
                                         .padding(vertical = 10.dp, horizontal = 4.dp),
@@ -1074,5 +1135,34 @@ fun ClientDetailsView(
             )
             pdfUriToExport = null
         }
+    }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
+                }
+            }
+        )
     }
 }

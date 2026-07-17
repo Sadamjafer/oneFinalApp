@@ -65,7 +65,11 @@ fun ProfitScreenView(
     val transactions by viewModel.allTransactions.collectAsState()
     val profitDeductions by viewModel.allProfitDeductions.collectAsState()
 
-    val decimalFormat = remember { DecimalFormat("#,##0.00") }
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
+
+    val decimalFormat = remember { DecimalFormat("#,##0.00", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
     
     var pdfUriToExport by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
@@ -178,10 +182,15 @@ fun ProfitScreenView(
         ) {
             Button(
                 onClick = {
-                    deductionToEdit = null
-                    deductionAmount = ""
-                    deductionTitle = ""
-                    showDeductionDialog = true
+                    if (userLevel == 1) {
+                        deductionToEdit = null
+                        deductionAmount = ""
+                        deductionTitle = ""
+                        showDeductionDialog = true
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، لا تمتلك الصلاحية لخصم مبالغ من الأرباح."
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
@@ -266,8 +275,13 @@ fun ProfitScreenView(
                                 .height(IntrinsicSize.Min)
                                 .clickable {
                                     if (entry is DeductionEntry) {
-                                        deductionToEdit = entry.deduction
-                                        showEditDeleteDialog = true
+                                        if (userLevel == 1) {
+                                            deductionToEdit = entry.deduction
+                                            showEditDeleteDialog = true
+                                        } else {
+                                            showApologyDialog = true
+                                            apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل أو حذف خصومات الأرباح."
+                                        }
                                     }
                                 }
                                 .background(
@@ -295,7 +309,7 @@ fun ProfitScreenView(
                             )
                             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                             Text(
-                                text = decimalFormat.format(entry.amount),
+                                text = if (userLevel == 3) "████" else decimalFormat.format(entry.amount),
                                 modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
                                 fontSize = 11.sp,
                                 color = if (entry.amount >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
@@ -304,7 +318,7 @@ fun ProfitScreenView(
                             )
                             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline))
                             Text(
-                                text = decimalFormat.format(balance),
+                                text = if (userLevel == 3) "████" else decimalFormat.format(balance),
                                 modifier = Modifier.weight(1f).padding(vertical = 10.dp, horizontal = 4.dp),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -515,5 +529,34 @@ fun ProfitScreenView(
             )
             pdfUriToExport = null
         }
+    }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
+                }
+            }
+        )
     }
 }

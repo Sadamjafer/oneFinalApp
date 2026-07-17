@@ -41,6 +41,7 @@ data class ReportRowData(
 @Composable
 fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Unit)? = null) {
     val allTransactions by viewModel.allTransactions.collectAsState()
+    val userLevel by viewModel.userLevel.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     
     val tabs = listOf("يومي", "شهري", "فترة محددة")
@@ -66,7 +67,7 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
     var selectedMonth by remember { mutableStateOf(currentCalendar.get(Calendar.MONTH)) }
     var selectedYear by remember { mutableStateOf(currentCalendar.get(Calendar.YEAR)) }
     
-    val decimalFormat = remember { DecimalFormat("#,##0.##") }
+    val decimalFormat = remember { DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
     val sdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH) }
     val utcSdf = remember { SimpleDateFormat("yyyy/MM/dd", Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") } }
 
@@ -460,7 +461,8 @@ fun ReportsScreenView(viewModel: TransactionViewModel, onNavigateBack: (() -> Un
             totalIncome = totalIncome,
             totalExpense = totalExpense,
             netBalance = netBalance,
-            isExpandable = selectedTab != 0
+            isExpandable = selectedTab != 0,
+            userLevel = userLevel
         )
         
         LaunchedEffect(pdfUriToExport) {
@@ -496,7 +498,8 @@ fun ReportTableView(
     totalIncome: Double,
     totalExpense: Double,
     netBalance: Double,
-    isExpandable: Boolean = false
+    isExpandable: Boolean = false,
+    userLevel: Int = 1
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 350.dp),
@@ -513,7 +516,8 @@ fun ReportTableView(
                 totalAmount = totalIncome,
                 decimalFormat = decimalFormat,
                 headerColor = MaterialTheme.colorScheme.primary,
-                isExpandable = isExpandable
+                isExpandable = isExpandable,
+                userLevel = userLevel
             )
         }
 
@@ -525,7 +529,8 @@ fun ReportTableView(
                 totalAmount = totalExpense,
                 decimalFormat = decimalFormat,
                 headerColor = MaterialTheme.colorScheme.error,
-                isExpandable = isExpandable
+                isExpandable = isExpandable,
+                userLevel = userLevel
             )
         }
 
@@ -535,7 +540,8 @@ fun ReportTableView(
                 totalIncome = totalIncome,
                 totalExpense = totalExpense,
                 netBalance = netBalance,
-                decimalFormat = decimalFormat
+                decimalFormat = decimalFormat,
+                userLevel = userLevel
             )
         }
     }
@@ -548,7 +554,8 @@ fun ReportTable(
     totalAmount: Double,
     decimalFormat: DecimalFormat,
     headerColor: Color,
-    isExpandable: Boolean = false
+    isExpandable: Boolean = false,
+    userLevel: Int = 1
 ) {
     var expandedRows by remember { mutableStateOf(setOf<String>()) }
 
@@ -647,7 +654,7 @@ fun ReportTable(
                 }
                 Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
                 Text(
-                    text = "${decimalFormat.format(row.amount)} ج.س", 
+                    text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(row.amount)} ج.س", 
                     modifier = Modifier.weight(1f).padding(10.dp),
                     fontSize = 13.sp,
                     color = headerColor,
@@ -689,7 +696,7 @@ fun ReportTable(
                         }
                         Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)))
                         Text(
-                            text = "${decimalFormat.format(tx.amount)} ج.س", 
+                            text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(tx.amount)} ج.س", 
                             modifier = Modifier.weight(1f).padding(8.dp),
                             fontSize = 12.sp,
                             color = headerColor.copy(alpha = 0.8f),
@@ -718,7 +725,7 @@ fun ReportTable(
             )
             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
             Text(
-                text = "${decimalFormat.format(totalAmount)} ج.س",
+                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalAmount)} ج.س",
                 modifier = Modifier.weight(1f).padding(10.dp),
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
@@ -734,7 +741,8 @@ fun SummaryTable(
     totalIncome: Double,
     totalExpense: Double,
     netBalance: Double,
-    decimalFormat: DecimalFormat
+    decimalFormat: DecimalFormat,
+    userLevel: Int = 1
 ) {
     Column(
         modifier = Modifier
@@ -773,7 +781,7 @@ fun SummaryTable(
             )
             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
             Text(
-                text = "${decimalFormat.format(totalIncome)} ج.س",
+                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalIncome)} ج.س",
                 modifier = Modifier.weight(1f).padding(10.dp),
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
@@ -799,7 +807,7 @@ fun SummaryTable(
             )
             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)))
             Text(
-                text = "${decimalFormat.format(totalExpense)} ج.س",
+                text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(totalExpense)} ج.س",
                 modifier = Modifier.weight(1f).padding(10.dp),
                 color = MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.SemiBold,
@@ -826,7 +834,7 @@ fun SummaryTable(
             )
             Box(modifier = Modifier.fillMaxHeight().width(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)))
             Text(
-                text = "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
+                text = if (userLevel == 3) "████ ج.س" else "${if (netBalance >= 0) "+" else ""}${decimalFormat.format(netBalance)} ج.س",
                 modifier = Modifier.weight(1f).padding(10.dp),
                 color = if (netBalance >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.Bold,

@@ -26,12 +26,21 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
             initialValue = emptyList()
         )
 
+    val userLevel = MutableStateFlow(1)
+
     private val _selectedAccountId = MutableStateFlow<Long?>(null)
     val selectedAccountId: StateFlow<Long?> = _selectedAccountId.asStateFlow()
 
+    val linkedAccountIdForLevel23 = MutableStateFlow<Long?>(null)
+
     // Dynamic ID of the active account (user selected OR first in list)
-    val activeAccountId: StateFlow<Long?> = combine(allAccounts, _selectedAccountId) { accounts, selectedId ->
-        selectedId ?: accounts.firstOrNull()?.id
+    val activeAccountId: StateFlow<Long?> = combine(allAccounts, _selectedAccountId, userLevel, linkedAccountIdForLevel23) { accounts, selectedId, level, linkedId ->
+        if (level > 1) {
+            val matchedAccount = accounts.find { it.id == linkedId }
+            matchedAccount?.id ?: accounts.firstOrNull()?.id
+        } else {
+            selectedId ?: accounts.firstOrNull()?.id
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

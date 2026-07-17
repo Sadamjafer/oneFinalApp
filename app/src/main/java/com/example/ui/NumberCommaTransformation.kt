@@ -26,7 +26,7 @@ class NumberCommaTransformation : VisualTransformation {
 
         val formattedInteger = try {
             val number = integerPart.toLong()
-            DecimalFormat("#,###").format(number)
+            DecimalFormat("#,###", java.text.DecimalFormatSymbols(java.util.Locale.US)).format(number)
         } catch (e: Exception) {
             integerPart
         }

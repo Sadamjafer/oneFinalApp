@@ -84,6 +84,13 @@ class MainActivity : ComponentActivity() {
             var isDarkMode by remember { mutableStateOf(prefs.getBoolean("is_dark_mode", false)) }
             var fontScale by remember { mutableStateOf(prefs.getFloat("font_scale", 1.0f)) }
 
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                val savedId = prefs.getLong("linked_account_id_level_2_3", -1L)
+                if (savedId != -1L) {
+                    viewModel.linkedAccountIdForLevel23.value = savedId
+                }
+            }
+
             val onThemeChange: (Boolean) -> Unit = { dark ->
                 isDarkMode = dark
                 prefs.edit().putBoolean("is_dark_mode", dark).apply()
@@ -126,7 +133,10 @@ class MainActivity : ComponentActivity() {
                             if (!isAuthenticated) {
                                 LoginScreen(
                                     prefs = prefs,
-                                    onLoginSuccess = { isAuthenticated = true }
+                                    onLoginSuccess = { level ->
+                                        viewModel.userLevel.value = level
+                                        isAuthenticated = true
+                                    }
                                 )
                             } else {
                                 LedgerDashboard(
@@ -161,6 +171,10 @@ fun LedgerDashboard(
 
     val accounts by viewModel.allAccounts.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
+
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
 
     var filterType by remember { mutableStateOf("ALL") } // "ALL", "INCOME", "EXPENSE"
     var selectedTab by remember { mutableStateOf("HOME") } // "HOME" or "SETTINGS"
@@ -240,7 +254,14 @@ fun LedgerDashboard(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { showAccountsMenu = true }
+                            .clickable {
+                                if (userLevel == 1) {
+                                    showAccountsMenu = true
+                                } else {
+                                    showApologyDialog = true
+                                    apologyMessage = "عذراً، لا تمتلك الصلاحية للتنقل بين المحلات أو إدارتها. يعرض لك فقط هذا المحل المخصص لك."
+                                }
+                            }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -363,6 +384,7 @@ fun LedgerDashboard(
                     }
 
                     // Header shortcuts
+                    val localContext = LocalContext.current
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -370,14 +392,14 @@ fun LedgerDashboard(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f), shape = CircleShape)
-                                .clickable { selectedTab = "SETTINGS" },
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = CircleShape)
+                                .clickable { (localContext as? android.app.Activity)?.finish() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "الإعدادات",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                imageVector = Icons.Filled.ExitToApp,
+                                contentDescription = "خروج من النظام",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -405,7 +427,8 @@ fun LedgerDashboard(
                     BalanceCard(
                         balance = currentBalance,
                         income = totalIncome,
-                        expenses = totalExpenses
+                        expenses = totalExpenses,
+                        maskData = (userLevel == 3)
                     )
                 }
 
@@ -751,6 +774,35 @@ fun LedgerDashboard(
                 }
             }
         }
+
+        if (showApologyDialog) {
+            AlertDialog(
+                onDismissRequest = { showApologyDialog = false },
+                title = {
+                    Text(
+                        "تنبيه الصلاحيات",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Text(
+                        text = apologyMessage,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showApologyDialog = false },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("حسناً، فهمت")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -765,6 +817,10 @@ fun AccountsSettingsView(
 ) {
     val accounts by viewModel.allAccounts.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
+
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
 
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var accountToEdit by remember { mutableStateOf<Account?>(null) }
@@ -853,7 +909,14 @@ fun AccountsSettingsView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .clickable { showAddAccountDialog = true },
+                .clickable {
+                    if (userLevel == 1) {
+                        showAddAccountDialog = true
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، لا تمتلك الصلاحية لإنشاء حساب أو محل تجاري جديد. هذه الصلاحية مخصصة لمدير النظام فقط."
+                    }
+                },
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -989,7 +1052,14 @@ fun AccountsSettingsView(
                 
                 // Change Password Row
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { showChangePasswordDialog = true }.padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        if (userLevel == 1) {
+                            showChangePasswordDialog = true
+                        } else {
+                            showApologyDialog = true
+                            apologyMessage = "عذراً، تعديل كلمات المرور متاح فقط لمدير النظام (المستوى الأول)."
+                        }
+                    }.padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1015,6 +1085,115 @@ fun AccountsSettingsView(
             }
         }
 
+        // Card to link user level 2 and 3 permissions to a specific account / store name
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val linkedAccountId by viewModel.linkedAccountIdForLevel23.collectAsState()
+        val linkedAccount = accounts.find { it.id == linkedAccountId }
+        var showAccountSelectorMenu by remember { mutableStateOf(false) }
+        val prefs = remember { context.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE) }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "صلاحيات المستويين الثاني والثالث",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Column {
+                    Text(
+                        text = "ربط دخول المحاسبين والمراقبين بمحل تجاري محدد",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "يتيح هذا الإعداد تحديد محل تجاري واحد فقط يظهر تلقائياً للمستويين الثاني والثالث عند تسجيل الدخول، ولا يمكنهم تغييره.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "المحل المرتبط حالياً:",
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = linkedAccount?.name ?: "تلقائي (أول محل في القائمة)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = if (linkedAccount != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Box {
+                        Button(
+                            onClick = {
+                                if (userLevel == 1) {
+                                    showAccountSelectorMenu = true
+                                } else {
+                                    showApologyDialog = true
+                                    apologyMessage = "عذراً، ربط الحسابات وتخصيص الصلاحيات متاح فقط لمدير النظام (المستوى الأول)."
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("تغيير المحل", fontSize = 12.sp)
+                        }
+
+                        DropdownMenu(
+                            expanded = showAccountSelectorMenu,
+                            onDismissRequest = { showAccountSelectorMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("تلقائي (أول محل في القائمة)") },
+                                onClick = {
+                                    viewModel.linkedAccountIdForLevel23.value = null
+                                    prefs.edit().remove("linked_account_id_level_2_3").apply()
+                                    showAccountSelectorMenu = false
+                                    Toast.makeText(context, "تم إلغاء الربط (تلقائي)", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+
+                            accounts.forEach { acc ->
+                                DropdownMenuItem(
+                                    text = { Text(acc.name) },
+                                    onClick = {
+                                        viewModel.linkedAccountIdForLevel23.value = acc.id
+                                        prefs.edit().putLong("linked_account_id_level_2_3", acc.id).apply()
+                                        showAccountSelectorMenu = false
+                                        Toast.makeText(context, "تم ربط الصلاحيات بمحل: ${acc.name}", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = "النسخ الاحتياطي والاستعادة",
@@ -1036,9 +1215,14 @@ fun AccountsSettingsView(
         ) {
             Button(
                 onClick = { 
-                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.getDefault())
-                    val timestamp = sdf.format(java.util.Date())
-                    backupLauncher.launch("simple_ledger_backup_$timestamp.zip") 
+                    if (userLevel == 1) {
+                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.getDefault())
+                        val timestamp = sdf.format(java.util.Date())
+                        backupLauncher.launch("simple_ledger_backup_$timestamp.zip") 
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، عمليات النسخ الاحتياطي والاستعادة متاحة فقط لمدير النظام (المستوى الأول)."
+                    }
                 },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -1048,7 +1232,14 @@ fun AccountsSettingsView(
                 Text("نسخ احتياطي", fontSize = 12.sp)
             }
             Button(
-                onClick = { restoreLauncher.launch(arrayOf("application/zip")) },
+                onClick = { 
+                    if (userLevel == 1) {
+                        restoreLauncher.launch(arrayOf("application/zip")) 
+                    } else {
+                        showApologyDialog = true
+                        apologyMessage = "عذراً، عمليات النسخ الاحتياطي والاستعادة متاحة فقط لمدير النظام (المستوى الأول)."
+                    }
+                },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
             ) {
@@ -1288,7 +1479,14 @@ fun AccountsSettingsView(
                         ) {
                             if (!isActive) {
                                 IconButton(
-                                    onClick = { viewModel.selectAccount(account.id) },
+                                    onClick = {
+                                        if (userLevel == 1) {
+                                            viewModel.selectAccount(account.id)
+                                        } else {
+                                            showApologyDialog = true
+                                            apologyMessage = "عذراً، لا تمتلك الصلاحية لتنشيط حساب آخر. يجب عليك تصفح هذا المحل المخصص لك فقط."
+                                        }
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
@@ -1300,7 +1498,14 @@ fun AccountsSettingsView(
                             }
 
                             IconButton(
-                                onClick = { accountToEdit = account },
+                                onClick = {
+                                    if (userLevel == 1) {
+                                        accountToEdit = account
+                                    } else {
+                                        showApologyDialog = true
+                                        apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل أسماء المحلات التجارية."
+                                    }
+                                },
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
@@ -1311,7 +1516,14 @@ fun AccountsSettingsView(
                             }
 
                             IconButton(
-                                onClick = { accountToClear = account },
+                                onClick = {
+                                    if (userLevel == 1) {
+                                        accountToClear = account
+                                    } else {
+                                        showApologyDialog = true
+                                        apologyMessage = "عذراً، لا تمتلك الصلاحية لتفريغ بيانات المحلات التجارية."
+                                    }
+                                },
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
@@ -1322,7 +1534,14 @@ fun AccountsSettingsView(
                             }
 
                             IconButton(
-                                onClick = { accountToDelete = account },
+                                onClick = {
+                                    if (userLevel == 1) {
+                                        accountToDelete = account
+                                    } else {
+                                        showApologyDialog = true
+                                        apologyMessage = "عذراً، لا تمتلك الصلاحية لحذف المحلات التجارية."
+                                    }
+                                },
                                 modifier = Modifier.size(36.dp)
                             ) {
                                 Icon(
@@ -1390,6 +1609,35 @@ fun AccountsSettingsView(
         ChangePasswordDialog(
             prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE),
             onDismiss = { showChangePasswordDialog = false }
+        )
+    }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
+                }
+            }
         )
     }
 }
@@ -1773,12 +2021,13 @@ fun ClearAccountWarningDialog(
 fun BalanceCard(
     balance: Double,
     income: Double,
-    expenses: Double
+    expenses: Double,
+    maskData: Boolean = false
 ) {
-    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00") }
-    val formattedBalance = formatter.format(balance)
-    val formattedIncome = formatter.format(income)
-    val formattedExpenses = formatter.format(expenses)
+    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
+    val formattedBalance = if (maskData) "████" else formatter.format(balance)
+    val formattedIncome = if (maskData) "████" else formatter.format(income)
+    val formattedExpenses = if (maskData) "████" else formatter.format(expenses)
 
     androidx.compose.material3.Card(
         modifier = androidx.compose.ui.Modifier
@@ -1920,7 +2169,7 @@ fun QuickActionButton(
 fun TransactionItem(
     transaction: com.example.data.Transaction
 ) {
-    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00") }
+    val formatter = androidx.compose.runtime.remember { java.text.DecimalFormat("#,##0.00", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
     val formattedAmount = formatter.format(transaction.amount)
     val formattedDate = androidx.compose.runtime.remember(transaction.timestamp) {
         val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
@@ -2124,11 +2373,13 @@ fun AddAccountDialog(
 }
 
 @Composable
-fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> Unit) {
+fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: (Int) -> Unit) {
     var password by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     
-    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+    val savedPassword1 = prefs.getString("login_password", "12345") ?: "12345"
+    val savedPassword2 = prefs.getString("login_password_level_2", "22222") ?: "22222"
+    val savedPassword3 = prefs.getString("login_password_level_3", "33333") ?: "33333"
 
     Box(
         modifier = Modifier
@@ -2233,8 +2484,13 @@ fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> 
                     
                     Button(
                         onClick = {
-                            if (password == savedPassword) {
-                                onLoginSuccess()
+                            val input = password.trim()
+                            if (input == savedPassword1) {
+                                onLoginSuccess(1)
+                            } else if (input == savedPassword2) {
+                                onLoginSuccess(2)
+                            } else if (input == savedPassword3) {
+                                onLoginSuccess(3)
                             } else {
                                 errorMessage = "كلمة المرور غير صحيحة"
                             }
@@ -2254,7 +2510,7 @@ fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> 
             }
             
             Text(
-                text = "كلمة المرور الافتراضية هي 12345",
+                text = "المستوى 1: 12345 | المستوى 2: 22222 | المستوى 3: 33333",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center
@@ -2265,72 +2521,141 @@ fun LoginScreen(prefs: android.content.SharedPreferences, onLoginSuccess: () -> 
 
 @Composable
 fun ChangePasswordDialog(prefs: android.content.SharedPreferences, onDismiss: () -> Unit) {
-    var currentPassword by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
+    var currentPassword1 by remember { mutableStateOf(prefs.getString("login_password", "12345") ?: "12345") }
+    var currentPassword2 by remember { mutableStateOf(prefs.getString("login_password_level_2", "22222") ?: "22222") }
+    var currentPassword3 by remember { mutableStateOf(prefs.getString("login_password_level_3", "33333") ?: "33333") }
     
-    val savedPassword = prefs.getString("login_password", "12345") ?: "12345"
+    var editPassword1 by remember { mutableStateOf("") }
+    var editPassword2 by remember { mutableStateOf("") }
+    var editPassword3 by remember { mutableStateOf("") }
+    
+    var errorMessage by remember { mutableStateOf("") }
+    var successMessage by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تغيير كلمة المرور") },
+        title = { 
+            Text(
+                "إدارة كلمات مرور النظام",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 18.sp
+            ) 
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = currentPassword,
-                    onValueChange = { currentPassword = it },
-                    label = { Text("كلمة المرور الحالية") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    "بصفتك مديراً للنظام، يمكنك تحديث كلمات المرور لجميع مستويات الصلاحيات هنا.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
-                    value = newPassword,
-                    onValueChange = { newPassword = it },
-                    label = { Text("كلمة المرور الجديدة") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    label = { Text("تأكيد كلمة المرور") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true
-                )
+                
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                
+                // Level 1 Password
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("كلمة مرور المستوى الأول (كامل الصلاحيات):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    OutlinedTextField(
+                        value = editPassword1,
+                        onValueChange = { editPassword1 = it; errorMessage = ""; successMessage = "" },
+                        placeholder = { Text("الحالية: $currentPassword1") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+
+                // Level 2 Password
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("كلمة مرور المستوى الثاني (عرض محل واحد وبدون تعديل):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    OutlinedTextField(
+                        value = editPassword2,
+                        onValueChange = { editPassword2 = it; errorMessage = ""; successMessage = "" },
+                        placeholder = { Text("الحالية: $currentPassword2") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+
+                // Level 3 Password
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("كلمة مرور المستوى الثالث (عرض محل واحد، بيانات مشفرة):", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    OutlinedTextField(
+                        value = editPassword3,
+                        onValueChange = { editPassword3 = it; errorMessage = ""; successMessage = "" },
+                        placeholder = { Text("الحالية: $currentPassword3") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (successMessage.isNotEmpty()) {
+                    Text(
+                        text = successMessage,
+                        color = Color(0xFF2E7D32),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
-                    if (currentPassword != savedPassword) {
-                        errorMessage = "كلمة المرور الحالية غير صحيحة"
-                    } else if (newPassword.isEmpty()) {
-                        errorMessage = "يرجى إدخال كلمة مرور جديدة"
-                    } else if (newPassword != confirmPassword) {
-                        errorMessage = "كلمة المرور الجديدة غير متطابقة"
-                    } else {
-                        prefs.edit().putString("login_password", newPassword).apply()
-                        onDismiss()
+                    val editor = prefs.edit()
+                    var changed = false
+                    if (editPassword1.isNotBlank()) {
+                        editor.putString("login_password", editPassword1.trim())
+                        currentPassword1 = editPassword1.trim()
+                        editPassword1 = ""
+                        changed = true
                     }
-                }
+                    if (editPassword2.isNotBlank()) {
+                        editor.putString("login_password_level_2", editPassword2.trim())
+                        currentPassword2 = editPassword2.trim()
+                        editPassword2 = ""
+                        changed = true
+                    }
+                    if (editPassword3.isNotBlank()) {
+                        editor.putString("login_password_level_3", editPassword3.trim())
+                        currentPassword3 = editPassword3.trim()
+                        editPassword3 = ""
+                        changed = true
+                    }
+                    if (changed) {
+                        editor.apply()
+                        successMessage = "تم تحديث كلمات المرور المدخلة بنجاح!"
+                    } else {
+                        errorMessage = "يرجى إدخال كلمة مرور جديدة لتحديثها."
+                    }
+                },
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("حفظ")
+                Text("تحديث")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("إلغاء")
+                Text("إغلاق")
             }
         }
     )

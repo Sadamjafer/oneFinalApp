@@ -48,6 +48,10 @@ fun IncomeScreenView(
     val incomeTypes by viewModel.incomeTypes.collectAsState()
     val currentAccount by viewModel.currentAccount.collectAsState()
 
+    val userLevel by viewModel.userLevel.collectAsState()
+    var showApologyDialog by remember { mutableStateOf(false) }
+    var apologyMessage by remember { mutableStateOf("") }
+
     var showAddTypeDialog by remember { mutableStateOf(false) }
     var showEditTypeDialog by remember { mutableStateOf<IncomeType?>(null) }
     var showDeleteTypeDialog by remember { mutableStateOf<IncomeType?>(null) }
@@ -58,7 +62,7 @@ fun IncomeScreenView(
     var pendingNewAmount by remember { mutableStateOf(0.0) }
     var pendingNewNotes by remember { mutableStateOf("") }
 
-    val decimalFormat = remember { DecimalFormat("#,##0.##") }
+    val decimalFormat = remember { DecimalFormat("#,##0.##", java.text.DecimalFormatSymbols(java.util.Locale.US)) }
 
     Column(
         modifier = Modifier
@@ -145,7 +149,14 @@ fun IncomeScreenView(
 
         // Main Action Button: Add Today's Revenue
         Button(
-            onClick = { showAddTypeDialog = true },
+            onClick = {
+                if (userLevel == 1) {
+                    showAddTypeDialog = true
+                } else {
+                    showApologyDialog = true
+                    apologyMessage = "عذراً، لا تمتلك الصلاحية لإضافة إيرادات جديدة."
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
@@ -359,7 +370,7 @@ fun IncomeScreenView(
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
                                         Text(
-                                            text = "${decimalFormat.format(incomeType.amount)} ج.س",
+                                            text = if (userLevel == 3) "████ ج.س" else "${decimalFormat.format(incomeType.amount)} ج.س",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp,
                                             color = Color(0xFF2E7D32) // Forest green for positive income
@@ -401,7 +412,14 @@ fun IncomeScreenView(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     OutlinedButton(
-                                        onClick = { showEditTypeDialog = incomeType },
+                                        onClick = {
+                                            if (userLevel == 1) {
+                                                showEditTypeDialog = incomeType
+                                            } else {
+                                                showApologyDialog = true
+                                                apologyMessage = "عذراً، لا تمتلك الصلاحية لتعديل بيانات الإيرادات."
+                                            }
+                                        },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -419,7 +437,14 @@ fun IncomeScreenView(
                                     }
 
                                     OutlinedButton(
-                                        onClick = { showDeleteTypeDialog = incomeType },
+                                        onClick = {
+                                            if (userLevel == 1) {
+                                                showDeleteTypeDialog = incomeType
+                                            } else {
+                                                showApologyDialog = true
+                                                apologyMessage = "عذراً، لا تمتلك الصلاحية لحذف بيانات الإيرادات."
+                                            }
+                                        },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -976,6 +1001,35 @@ fun IncomeScreenView(
             dismissButton = {
                 TextButton(onClick = { showConfirmEditTypeDialog = null }) {
                     Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    if (showApologyDialog) {
+        AlertDialog(
+            onDismissRequest = { showApologyDialog = false },
+            title = {
+                Text(
+                    "تنبيه الصلاحيات",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = apologyMessage,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showApologyDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("حسناً، فهمت")
                 }
             }
         )
